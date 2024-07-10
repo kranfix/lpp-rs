@@ -1,3 +1,7 @@
+#[derive(Clone, Copy)]
+pub struct Source<'s>(&'s str);
+
+#[derive(Clone)]
 pub struct Token {
   kind: TokenKind,
   start: usize,
@@ -38,10 +42,15 @@ pub enum TokenKind {
 }
 
 impl Token {
-  pub fn raw_from_literal(source: &str, start: usize, end: usize) -> Token {
-    let literal = &source[start..end];
+  pub fn raw_from_literal<'s>(source: Source<'s>, start: usize, end: usize) -> Token {
+    let literal = &source.0[start..end];
     let kind = TokenKind::from_literal(literal);
     Token { kind, start, end }
+  }
+
+  pub fn literal<'s>(&self, source: Source<'s>) -> &'s str {
+    let range = self.start..self.end;
+    &source.0[range]
   }
 }
 
