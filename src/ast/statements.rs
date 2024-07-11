@@ -3,8 +3,8 @@ use enum_dispatch::enum_dispatch;
 use crate::tokened;
 
 use super::{
-  ast_node::{AstNode, NodeDisplay},
-  Expression, Source, Token,
+  ast_node::{AstNode, NodeDisplay, Source},
+  Expression, Ident, Token,
 };
 
 pub struct Program {
@@ -35,50 +35,61 @@ impl AstNode for Program {
 }
 
 #[enum_dispatch(NodeDisplay, AstNode)]
-enum Statement {
+pub enum Statement {
+  Let(LetStatement),
+  Return(ReturnStatement),
   Expression(ExpressionStatement),
   Block(Block),
 }
 
-/*
-class LetStatement(Statement):
+pub struct LetStatement {
+  token: Token,
+  name: Ident,
+  value: Expression,
+}
+impl LetStatement {
+  pub fn new(token: Token, name: Ident, value: Expression) -> LetStatement {
+    LetStatement { token, name, value }
+  }
+}
+tokened!(LetStatement);
+impl NodeDisplay for LetStatement {
+  fn source_fmt<'s>(
+    &self,
+    source: Source<'s>,
+    f: &mut std::fmt::Formatter<'_>,
+  ) -> std::fmt::Result {
+    let ret = self.token_literal(source);
+    write!(f, "{ret} ")?;
+    self.name.source_fmt(source, f)?;
+    write!(f, " = ")?;
+    self.value.source_fmt(source, f)
+  }
+}
 
-    def __init__(self,
-                 token: Token,
-                 name: Optional[Identifier] = None,
-                 value: Optional[Expression] = None) -> None:
-        super().__init__(token)
-        self.name = name
-        self.value = value
+pub struct ReturnStatement {
+  token: Token,
+  return_exp: Expression,
+}
+impl ReturnStatement {
+  pub fn new(token: Token, return_exp: Expression) -> ReturnStatement {
+    ReturnStatement { token, return_exp }
+  }
+}
+tokened!(ReturnStatement);
+impl NodeDisplay for ReturnStatement {
+  fn source_fmt<'s>(
+    &self,
+    source: Source<'s>,
+    f: &mut std::fmt::Formatter<'_>,
+  ) -> std::fmt::Result {
+    let ret = self.token_literal(source);
+    write!(f, "{ret} ")?;
+    self.return_exp.source_fmt(source, f)
+  }
+}
 
-    def __str__(self) -> str:
-        return f'{self.token_literal()} {str(self.name)} = {str(self.value)};'
-
-
-class ReturnStatement(Statement):
-
-    def __init__(self,
-                 token: Token,
-                 return_value: Optional[Expression] = None) -> None:
-        super().__init__(token)
-        self.return_value = return_value
-
-    def __str__(self) -> str:
-        return f'{self.token_literal()} {str(self.return_value)};'
-
-
-class ExpressionStatement(Statement):
-
-    def __init__(self,
-                 token: Token,
-                 expression: Optional[Expression] = None) -> None:
-        super().__init__(token)
-        self.expression = expression
-
-    def __str__(self) -> str:
-        return str(self.expression)s
- */
-struct ExpressionStatement {
+pub struct ExpressionStatement {
   token: Token,
   expression: Box<Expression>,
 }
@@ -101,7 +112,7 @@ impl NodeDisplay for ExpressionStatement {
   }
 }
 
-struct Block {
+pub struct Block {
   token: Token,
   statements: Vec<Statement>,
 }

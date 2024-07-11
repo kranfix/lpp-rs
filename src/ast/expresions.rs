@@ -2,7 +2,11 @@ use enum_dispatch::enum_dispatch;
 
 use crate::tokened;
 
-use super::{ast_node::NodeDisplay, Source, Token};
+use super::{
+  ast_node::{NodeDisplay, Source},
+  statements::Block,
+  Token,
+};
 
 #[enum_dispatch(TokenedNode, NodeDisplay)]
 pub enum Expression {
@@ -213,7 +217,6 @@ impl NodeDisplay for Func {
     write!(f, ") }}")
   }
 }
-struct Block;
 
 pub struct Call {
   token: Token,

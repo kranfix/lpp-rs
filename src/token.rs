@@ -1,5 +1,6 @@
-#[derive(Clone, Copy)]
-pub struct Source<'s>(&'s str);
+use std::ops::{Deref, Range};
+
+use crate::core::Literal;
 
 #[derive(Clone)]
 pub struct Token {
@@ -8,8 +9,18 @@ pub struct Token {
   end: usize,
 }
 
+impl Token {
+  pub fn new(kind: TokenKind, start: usize, end: usize) -> Token {
+    Token { kind, start, end }
+  }
+
+  pub fn range(&self) -> Range<usize> {
+    self.start..self.end
+  }
+}
+
 /// Supported `TokenType`s in LPP
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub enum TokenKind {
   Assign,
   Comma,
@@ -23,7 +34,7 @@ pub enum TokenKind {
   Ident,
   If,
   Illegal,
-  Int,
+  Int(u32),
   LBrace,
   Let,
   LParen,
@@ -37,27 +48,14 @@ pub enum TokenKind {
   RParen,
   RBrace,
   Semicolon,
-  String,
+  String(String),
   True,
 }
 
-impl Token {
-  pub fn raw_from_literal<'s>(source: Source<'s>, start: usize, end: usize) -> Token {
-    let literal = &source.0[start..end];
-    let kind = TokenKind::from_literal(literal);
-    Token { kind, start, end }
-  }
-
-  pub fn literal<'s>(&self, source: Source<'s>) -> &'s str {
-    let range = self.start..self.end;
-    &source.0[range]
-  }
-}
-
 impl TokenKind {
-  pub fn from_literal(literal: &str) -> TokenKind {
-    match LITERALS.binary_search_by(|(text, _)| text.cmp(&literal)) {
-      Ok(idx) => LITERALS[idx].1,
+  pub fn from_literal<'s>(lit: Literal<'s>) -> TokenKind {
+    match LITERALS.binary_search_by(|(text, _)| text.cmp(&lit.deref())) {
+      Ok(idx) => LITERALS[idx].1.clone(),
       Err(_) => TokenKind::Ident,
     }
   }

@@ -1,6 +1,25 @@
 use enum_dispatch::enum_dispatch;
 
-use super::Source;
+use super::Token;
+
+#[derive(Clone, Copy)]
+pub struct Source<'s>(&'s str);
+impl<'s> From<&'s str> for Source<'s> {
+  fn from(value: &'s str) -> Self {
+    Source(value)
+  }
+}
+impl<'s> Source<'s> {
+  pub fn after(&self, idx: usize) -> &'s str {
+    &self.0[idx..]
+  }
+}
+impl Token {
+  pub fn literal<'s>(&self, source: Source<'s>) -> &'s str {
+    let range = self.range();
+    &source.0[range]
+  }
+}
 
 #[enum_dispatch]
 pub trait NodeDisplay {
@@ -17,7 +36,7 @@ pub trait AstNode: NodeDisplay {
 macro_rules! tokened {
   ($node:ty) => {
     impl $crate::ast::ast_node::AstNode for $node {
-      fn token_literal<'s>(&self, source: Source<'s>) -> &'s str {
+      fn token_literal<'s>(&self, source: $crate::ast::ast_node::Source<'s>) -> &'s str {
         self.token.literal(source)
       }
     }
