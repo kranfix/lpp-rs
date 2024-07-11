@@ -1,33 +1,16 @@
-use std::ops::Deref;
+use crate::{types::Literal, utils::is_digit};
 
 pub trait ReadFrom<'a> {
   type Value;
   fn read_from(text: &'a str) -> Option<(usize, Self::Value)>;
 }
 
-pub struct Literal<'s>(&'s str);
-impl<'s> Deref for Literal<'s> {
-  type Target = str;
-
-  fn deref(&self) -> &Self::Target {
-    self.0
-  }
-}
 impl<'s> ReadFrom<'s> for Literal<'s> {
   type Value = Literal<'s>;
 
   fn read_from(text: &'s str) -> Option<(usize, Literal<'s>)> {
-    let mut chars = text.chars();
-    let len = match chars.next() {
-      Some(c) => c.len_utf8(),
-      None => return None,
-    };
-
-    let len = text[len..]
-      .chars()
-      .take_while(|c| is_letter(*c) || is_digit(*c))
-      .fold(len, |n, c| n + c.len_utf8());
-    Some((len, Literal(&text[0..len])))
+    let lit = Literal::contained_at_start(text)?;
+    Some((lit.len(), lit))
   }
 }
 
@@ -87,11 +70,4 @@ impl<'s> ReadFrom<'s> for String {
 }
 pub enum ExtractStringError {
   Incomplete,
-}
-
-fn is_letter(c: char) -> bool {
-  (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || "áéíóúÁÉÍÓÚñÑ_".contains(c)
-}
-fn is_digit(c: char) -> bool {
-  c >= '0' && c <= '9'
 }

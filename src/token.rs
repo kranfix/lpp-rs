@@ -1,6 +1,6 @@
 use std::ops::{Deref, Range};
 
-use crate::core::Literal;
+use crate::types::Literal;
 
 #[derive(Clone)]
 pub struct Token {
@@ -16,6 +16,10 @@ impl Token {
 
   pub fn range(&self) -> Range<usize> {
     self.start..self.end
+  }
+
+  pub fn kind(&self) -> &TokenKind {
+    &self.kind
   }
 }
 

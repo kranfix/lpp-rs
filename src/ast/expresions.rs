@@ -8,7 +8,7 @@ use super::{
   Token,
 };
 
-#[enum_dispatch(TokenedNode, NodeDisplay)]
+#[enum_dispatch(NodeDisplay)]
 pub enum Expression {
   Ident(Ident),
   Int(Int),

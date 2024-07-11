@@ -1,5 +1,8 @@
-use crate::core::{ExtractStringError, Literal, ReadFrom};
+mod read_from;
+
 use crate::token::{Token, TokenKind};
+use crate::types::Literal;
+use read_from::{ExtractStringError, ReadFrom};
 
 pub struct Lexer<T> {
   source: T,

@@ -10,7 +10,11 @@ use super::{
 pub struct Program {
   statements: Vec<Statement>,
 }
-
+impl Program {
+  pub fn new(statements: Vec<Statement>) -> Program {
+    Program { statements }
+  }
+}
 impl NodeDisplay for Program {
   fn source_fmt<'s>(
     &self,

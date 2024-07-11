@@ -1,4 +1,6 @@
 mod ast;
-mod core;
 mod lexer;
+mod parser;
 mod token;
+mod types;
+mod utils;
