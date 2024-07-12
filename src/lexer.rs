@@ -42,46 +42,46 @@ impl<T: AsRef<str>> Iterator for Lexer<T> {
       return None;
     }
 
-    let token = if let Some((len, _)) = self.read_char('=') {
-      if let Some(v) = self.read_char('=') {
-        self.update_pos(len + v.0, TokenKind::Eq)
+    let token = if let Some(len) = self.read_char('=') {
+      if let Some(len1) = self.read_char('=') {
+        self.update_pos(len + len1, TokenKind::Eq)
       } else {
         self.update_pos(len, TokenKind::Assign)
       }
-    } else if let Some((len, _)) = self.read_char('+') {
+    } else if let Some(len) = self.read_char('+') {
       self.update_pos(len, TokenKind::Plus)
-    } else if let Some((len, _)) = self.read_char('\0') {
+    } else if let Some(len) = self.read_char('\0') {
       self.update_pos(len, TokenKind::EOF)
-    } else if let Some((len, _)) = self.read_char('(') {
+    } else if let Some(len) = self.read_char('(') {
       self.update_pos(len, TokenKind::LParen)
-    } else if let Some((len, _)) = self.read_char(')') {
+    } else if let Some(len) = self.read_char(')') {
       self.update_pos(len, TokenKind::RParen)
-    } else if let Some((len, _)) = self.read_char('{') {
+    } else if let Some(len) = self.read_char('{') {
       self.update_pos(len, TokenKind::LBrace)
-    } else if let Some((len, _)) = self.read_char('}') {
+    } else if let Some(len) = self.read_char('}') {
       self.update_pos(len, TokenKind::RBrace)
-    } else if let Some((len, _)) = self.read_char(',') {
+    } else if let Some(len) = self.read_char(',') {
       self.update_pos(len, TokenKind::Comma)
-    } else if let Some((len, _)) = self.read_char(';') {
+    } else if let Some(len) = self.read_char(';') {
       self.update_pos(len, TokenKind::Semicolon)
-    } else if let Some((len, _)) = self.read_char('-') {
+    } else if let Some(len) = self.read_char('-') {
       self.update_pos(len, TokenKind::Minus)
-    } else if let Some((len, _)) = self.read_char('/') {
+    } else if let Some(len) = self.read_char('/') {
       self.update_pos(len, TokenKind::Division)
-    } else if let Some((len, _)) = self.read_char('*') {
+    } else if let Some(len) = self.read_char('*') {
       self.update_pos(len, TokenKind::Mul)
-    } else if let Some((len, _)) = self.read_char('<') {
+    } else if let Some(len) = self.read_char('<') {
       self.update_pos(len, TokenKind::LT)
-    } else if let Some((len, _)) = self.read_char('>') {
+    } else if let Some(len) = self.read_char('>') {
       self.update_pos(len, TokenKind::GT)
-    } else if let Some((len, _)) = self.read_char('!') {
-      if let Some(v) = self.read_char('=') {
-        self.update_pos(len + v.0, TokenKind::NotEq)
+    } else if let Some(len) = self.read_char('!') {
+      if let Some(len1) = self.read_char('=') {
+        self.update_pos(len + len1, TokenKind::NotEq)
       } else {
         self.update_pos(len, TokenKind::Neg)
       }
-    } else if let Some((len, value)) = Literal::read_from(rem) {
-      self.update_pos(len, TokenKind::from_literal(value))
+    } else if let Some((len, lit)) = Literal::read_from(rem) {
+      self.update_pos(len, TokenKind::from_literal(lit))
     } else if let Some((len, value)) = u32::read_from(rem) {
       self.update_pos(len, TokenKind::Int(value))
     } else if let Some((len, value)) = String::read_from(rem) {
@@ -106,11 +106,11 @@ impl<T: AsRef<str>> Lexer<T> {
     &self.source.as_ref()[self.pos..]
   }
 
-  fn read_char(&self, target: char) -> Option<(usize, char)> {
+  fn read_char(&self, target: char) -> Option<usize> {
     let mut chars = self.rem().chars();
 
     match chars.next() {
-      Some(c) if c == target => Some((target.len_utf8(), target)),
+      Some(c) if c == target => Some(target.len_utf8()),
       Some(_) => None,
       None => None,
     }
@@ -120,7 +120,7 @@ impl<T: AsRef<str>> Lexer<T> {
     let mut n: usize = 0;
     let mut chars = self.rem().chars();
     while let Some(c) = chars.next() {
-      if WHITE_SPACES.contains(c) {
+      if " \t\n\r".contains(c) {
         n += c.len_utf8();
       } else {
         break;
@@ -129,5 +129,3 @@ impl<T: AsRef<str>> Lexer<T> {
     self.pos += n;
   }
 }
-
-static WHITE_SPACES: &str = " \t\n\r";
