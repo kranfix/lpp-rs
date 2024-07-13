@@ -2,7 +2,7 @@ use std::ops::{Deref, Range};
 
 use crate::types::Literal;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Token {
   kind: TokenKind,
   start: usize,
@@ -18,13 +18,13 @@ impl Token {
     self.start..self.end
   }
 
-  pub fn kind(&self) -> &TokenKind {
-    &self.kind
+  pub fn kind(&self) -> TokenKind {
+    self.kind
   }
 }
 
 /// Supported `TokenType`s in LPP
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub enum TokenKind {
   Assign,
   Comma,
@@ -38,7 +38,7 @@ pub enum TokenKind {
   Ident,
   If,
   Illegal,
-  Int(u32),
+  Int,
   LBrace,
   Let,
   LParen,
@@ -52,14 +52,14 @@ pub enum TokenKind {
   RParen,
   RBrace,
   Semicolon,
-  String(String),
+  String,
   True,
 }
 
 impl TokenKind {
   pub fn from_literal<'s>(lit: Literal<'s>) -> TokenKind {
     match LITERALS.binary_search_by(|(text, _)| text.cmp(&lit.deref())) {
-      Ok(idx) => LITERALS[idx].1.clone(),
+      Ok(idx) => LITERALS[idx].1,
       Err(_) => TokenKind::Ident,
     }
   }
@@ -74,3 +74,26 @@ static LITERALS: [(&str, TokenKind); 7] = [
   ("return", TokenKind::Return),
   ("true", TokenKind::True),
 ];
+
+#[derive(Debug)]
+pub enum TokenValue {
+  Int(u32),
+  String(String),
+  Bool(bool),
+}
+
+impl From<u32> for TokenValue {
+  fn from(value: u32) -> Self {
+    TokenValue::Int(value)
+  }
+}
+impl From<bool> for TokenValue {
+  fn from(value: bool) -> Self {
+    TokenValue::Bool(value)
+  }
+}
+impl From<String> for TokenValue {
+  fn from(value: String) -> Self {
+    TokenValue::String(value)
+  }
+}

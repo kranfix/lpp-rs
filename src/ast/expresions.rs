@@ -24,6 +24,11 @@ pub enum Expression {
 pub struct Ident {
   token: Token,
 }
+impl Ident {
+  pub fn new(token: Token) -> Ident {
+    Ident { token }
+  }
+}
 tokened!(Ident);
 impl NodeDisplay for Ident {
   fn source_fmt<'s>(

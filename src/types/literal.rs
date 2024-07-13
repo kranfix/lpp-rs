@@ -2,6 +2,7 @@ use std::ops::Deref;
 
 use crate::utils::{is_digit, is_letter};
 
+#[derive(Debug)]
 pub struct Literal<'s>(&'s str);
 impl<'s> Deref for Literal<'s> {
   type Target = str;
@@ -20,7 +21,13 @@ impl<'s> Literal<'s> {
   pub fn contained_at_start(text: &'s str) -> Option<Literal<'s>> {
     let mut chars = text.chars();
     let len = match chars.next() {
-      Some(c) => c.len_utf8(),
+      Some(c) => {
+        if is_letter(c) {
+          c.len_utf8()
+        } else {
+          return None;
+        }
+      }
       None => return None,
     };
 
