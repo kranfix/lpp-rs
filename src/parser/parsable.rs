@@ -4,16 +4,17 @@ use crate::{
     Statement,
   },
   branch::Branch,
+  lexer::Source,
   token::TokenKind,
 };
 
 use super::parser::{ParseError, Parser};
 
-type ParserBranch<'r, 'p> = Branch<'r, 'p, Parser<'r>>;
+type ParserBranch<'r, 'p, S: Source> = Branch<'r, 'p, Parser<S>>;
 
 trait Parsable: Sized {
-  fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self>;
-  fn parse<'p, 'b>(parent_branch: &'b ParserBranch<'p, 'b>) -> Option<Self> {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self>;
+  fn parse<'p, 'b, S: Source>(parent_branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     let branch = parent_branch.child();
     let val = Self::raw_parse(&branch)?;
     branch.commit();
@@ -22,7 +23,7 @@ trait Parsable: Sized {
 }
 
 impl Parsable for Program {
-  fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self> {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     let mut statements = Vec::new();
     loop {
       match Statement::parse(branch) {
@@ -36,7 +37,7 @@ impl Parsable for Program {
 }
 
 impl Parsable for Statement {
-  fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self> {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     if let Some(st) = LetStatement::parse(branch) {
       return Some(Statement::Let(st));
     }
@@ -54,7 +55,7 @@ impl Parsable for Statement {
 }
 
 impl Parsable for LetStatement {
-  fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self> {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     let let_token = branch.take_token_kind(TokenKind::Let)?;
     let name = Ident::parse(branch)?;
     branch.take_token_kind(TokenKind::Assign)?;
@@ -67,7 +68,7 @@ impl Parsable for LetStatement {
 }
 
 impl Parsable for ReturnStatement {
-  fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self> {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     let return_token = branch.take_token_kind(TokenKind::Return)?;
     let return_exp = Expression::parse(branch)?;
     branch.take_token_kind(TokenKind::Semicolon)?;
@@ -78,7 +79,7 @@ impl Parsable for ReturnStatement {
 }
 
 impl Parsable for ExpressionStatement {
-  fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self> {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     let expression = Expression::parse(branch)?;
     branch.take_token_kind(TokenKind::Semicolon)?;
     let st = ExpressionStatement::new(expression);
@@ -87,7 +88,7 @@ impl Parsable for ExpressionStatement {
 }
 
 impl Parsable for Block {
-  fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self> {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     let token = branch.take_token_kind(TokenKind::LBrace)?;
 
     let mut statements = Vec::new();
@@ -109,7 +110,7 @@ impl Parsable for Block {
 }
 
 impl Parsable for Expression {
-  fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self> {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     todo!()
     // pub enum Expression {
     //   Ident(Ident),
@@ -126,7 +127,7 @@ impl Parsable for Expression {
 }
 
 impl Parsable for Ident {
-  fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self> {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     let ident_token = branch.take_token_kind(TokenKind::Ident)?;
     Some(Ident::new(ident_token))
   }
@@ -147,7 +148,7 @@ mod test {
   #[test]
   fn let_statement_test() {
     let source = "  let my_var = other_var; ";
-    let lexer = Lexer::new(source);
+    let lexer = Lexer::new(&source);
 
     let parser = Parser::new(lexer);
     let program = Program::parse(&parser.branch());

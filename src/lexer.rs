@@ -1,11 +1,13 @@
 mod read_from;
+mod source;
 
 use crate::token::{Token, TokenKind, TokenValue};
 use crate::types::Literal;
 use read_from::{ExtractStringError, ReadFrom};
+pub use source::Source;
 
-pub struct Lexer<'l> {
-  source: &'l str,
+pub struct Lexer<Source> {
+  source: Source,
   pos: usize,
   stop: Option<usize>,
 }
@@ -17,10 +19,13 @@ pub enum LexerStatus {
   ErrorAt(usize),
 }
 
-impl<'l> Lexer<'l> {
-  pub fn new(source: &'l str) -> Lexer<'l> {
+impl<S> Lexer<S> {
+  pub fn new(source: &S) -> Lexer<S>
+  where
+    S: Source,
+  {
     Lexer {
-      source,
+      source: source.clone(),
       pos: 0,
       stop: None,
     }
@@ -37,6 +42,12 @@ impl<'l> Lexer<'l> {
       None => LexerStatus::Open,
     }
   }
+  pub fn source(&self) -> &str
+  where
+    S: Source,
+  {
+    self.source.source()
+  }
   fn update_pos(&mut self, len: usize, kind: TokenKind) -> Token {
     let start = self.pos;
     self.pos += len;
@@ -47,7 +58,7 @@ impl<'l> Lexer<'l> {
   }
 }
 
-impl<'l> Iterator for Lexer<'l> {
+impl<S: Source> Iterator for Lexer<S> {
   type Item = (Token, Option<TokenValue>);
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -58,7 +69,7 @@ impl<'l> Iterator for Lexer<'l> {
     self.skip_whitespaces();
     let rem = self.rem();
     if rem.is_empty() {
-      self.stop = Some(self.source.len());
+      self.stop = Some(self.source().len());
       return None;
     }
 
@@ -134,9 +145,9 @@ impl<'l> Iterator for Lexer<'l> {
   }
 }
 
-impl<'l> Lexer<'l> {
+impl<S: Source> Lexer<S> {
   fn rem<'a>(&'a self) -> &'a str {
-    &self.source[self.pos..]
+    &self.source()[self.pos..]
   }
 
   fn read_char(&self, target: char) -> Option<usize> {
@@ -184,7 +195,8 @@ mod test {
   fn parse_file() {
     let source = read_file("fixtures/tokens/tokens.lpp").unwrap();
     let expected = read_file("fixtures/tokens/result.snapshot").unwrap();
-    let mut lexer = Lexer::new(&source);
+    let source_ref = source.as_str();
+    let mut lexer = Lexer::new(&source_ref);
     let status = lexer.status();
     assert_eq!(status, LexerStatus::Open);
 

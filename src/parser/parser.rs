@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::branch::{Branch, Branchable};
-use crate::lexer::Lexer;
+use crate::lexer::{Lexer, Source};
 use crate::token::{Token, TokenKind, TokenValue};
 use crate::types::DefaultCell;
 use std::cell::{Cell, RefCell};
@@ -23,8 +23,8 @@ enum Precedence {
   Call = 7,
 }
 
-pub struct Parser<'source> {
-  lexer: RefCell<Lexer<'source>>,
+pub struct Parser<S> {
+  lexer: RefCell<Lexer<S>>,
   tokens: DefaultCell<Vec<Token>>,
   token_pos: Cell<usize>,
   errors: DefaultCell<Vec<ParseError>>,
@@ -32,8 +32,8 @@ pub struct Parser<'source> {
   value_idx: Cell<usize>,
 }
 
-impl<'p> Parser<'p> {
-  pub fn new(lexer: Lexer<'p>) -> Parser<'p> {
+impl<S> Parser<S> {
+  pub fn new(lexer: Lexer<S>) -> Parser<S> {
     Parser {
       lexer: RefCell::new(lexer),
       tokens: DefaultCell::default(),
@@ -60,7 +60,7 @@ impl<'p> Parser<'p> {
     self.tokens.borrow().last().cloned()
   }
 }
-impl<'source> Parser<'source> {
+impl<S: Source> Parser<S> {
   fn take_next_token(&self) -> Option<Token> {
     self.inspect_next_token()?;
     self.current_token()
@@ -72,7 +72,7 @@ impl<'source> Parser<'source> {
   }
 }
 
-impl<'source> Branchable for Parser<'source> {
+impl<S: Source> Branchable for Parser<S> {
   type BranchData = ParserBranchData;
 
   type CommitError = ();
@@ -100,11 +100,11 @@ impl<'source> Branchable for Parser<'source> {
   }
 
   fn abort_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>) {
-    // if branch.is_accurate_alternative.get() {
-    //   if let Some(parent) = branch.parent() {
-    //     parent.mark_accurate_alternative();
-    //   }
-    // }
+    if branch.is_accurate_alternative.get() {
+      if let Some(parent) = branch.parent() {
+        parent.mark_accurate_alternative();
+      }
+    }
   }
 }
 
@@ -128,7 +128,7 @@ pub enum ParseError {
   Msg(String),
   InvalidValueFormat(String),
 }
-impl<'p, 'b> Branch<'p, 'b, Parser<'p>> {
+impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
   pub fn take_next_token(&self) -> Option<Token> {
     let tokens = self.root().tokens.borrow_mut();
     let token_pos = self.token_pos.get();
