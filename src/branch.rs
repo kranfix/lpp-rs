@@ -5,13 +5,15 @@ pub trait Branchable: Sized {
   type CommitError;
 
   fn branch<'r>(&'r self) -> Branch<'r, 'r, Self>;
-  fn commit_branch<'r, 'p>(branch: &Branch<'r, 'p, Self>) -> Result<(), Self::CommitError>;
+  fn commit_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>) -> Result<(), Self::CommitError>;
+  fn abort_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>);
 }
 
-pub struct Branch<'r, 'p, R: 'r + Branchable> {
+pub struct Branch<'r, 'p, R: Branchable> {
   root: &'r R,
   parent: Option<&'p Branch<'r, 'p, R>>,
   data: R::BranchData,
+  committed: bool,
 }
 impl<'r, 'p, R: 'r + Branchable> Deref for Branch<'r, 'p, R> {
   type Target = R::BranchData;
@@ -21,11 +23,19 @@ impl<'r, 'p, R: 'r + Branchable> Deref for Branch<'r, 'p, R> {
   }
 }
 
-impl<'r, 'p, R: 'r + Branchable> Branch<'r, 'p, R> {
+impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
+  pub fn new(root: &'r R, data: R::BranchData) -> Self {
+    Branch {
+      root,
+      parent: None,
+      data,
+      committed: false,
+    }
+  }
   pub fn root(&self) -> &'r R {
     &self.root
   }
-  pub fn parent(&self) -> Option<&Self> {
+  pub fn parent(&self) -> Option<&'p Self> {
     self.parent
   }
   pub fn child<'b>(&'b self) -> Branch<'r, 'b, R> {
@@ -33,9 +43,21 @@ impl<'r, 'p, R: 'r + Branchable> Branch<'r, 'p, R> {
       root: &self.root,
       parent: Some(self),
       data: self.data.clone(),
+      committed: false,
     }
   }
-  pub fn commit(&self) -> Result<(), R::CommitError> {
-    Branchable::commit_branch(self)
+  pub fn commit(mut self) -> Result<(), R::CommitError> {
+    Branchable::commit_branch(&mut self)?;
+    self.committed = true;
+    Ok(())
+  }
+  pub fn abort(self) {}
+}
+
+impl<'r, 'p, R: 'r + Branchable> Drop for Branch<'r, 'p, R> {
+  fn drop(&mut self) {
+    if !self.committed {
+      R::abort_branch(self)
+    }
   }
 }

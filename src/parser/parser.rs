@@ -1,12 +1,11 @@
 use crate::ast::*;
+use crate::branch::{Branch, Branchable};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenKind, TokenValue};
 use crate::types::DefaultCell;
-use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::iter::Iterator;
-use std::pin::Pin;
 
 type PrefixParseFn = Box<dyn Fn() -> Option<Expression>>;
 type InfixParseFn = Box<dyn Fn(Expression) -> Option<Expression>>;
@@ -24,8 +23,8 @@ enum Precedence {
   Call = 7,
 }
 
-pub struct Parser<'p> {
-  lexer: RefCell<Lexer<'p>>,
+pub struct Parser<'source> {
+  lexer: RefCell<Lexer<'source>>,
   tokens: DefaultCell<Vec<Token>>,
   token_pos: Cell<usize>,
   errors: DefaultCell<Vec<ParseError>>,
@@ -60,17 +59,8 @@ impl<'p> Parser<'p> {
   pub(crate) fn current_token(&self) -> Option<Token> {
     self.tokens.borrow().last().cloned()
   }
-  pub(crate) fn branch<'b: 'p>(&'b self) -> ParserBranch<'p, 'b> {
-    ParserBranch {
-      parent: None,
-      parser: &self,
-      token_pos: self.token_pos.clone(),
-      is_accurate_alternative: Cell::new(false),
-      value_idx: self.value_idx.clone(),
-    }
-  }
 }
-impl<'p> Parser<'p> {
+impl<'source> Parser<'source> {
   fn take_next_token(&self) -> Option<Token> {
     self.inspect_next_token()?;
     self.current_token()
@@ -82,20 +72,65 @@ impl<'p> Parser<'p> {
   }
 }
 
-pub struct ParserBranch<'p, 'b> {
-  pub(crate) parent: Option<&'b ParserBranch<'p, 'b>>,
-  pub(crate) parser: &'p Parser<'p>,
+impl<'source> Branchable for Parser<'source> {
+  type BranchData = ParserBranchData;
+
+  type CommitError = ();
+
+  fn branch<'r>(&'r self) -> crate::branch::Branch<'r, 'r, Self> {
+    crate::branch::Branch::new(
+      self,
+      ParserBranchData {
+        token_pos: self.token_pos.clone(),
+        is_accurate_alternative: Cell::new(false),
+        value_idx: self.value_idx.clone(),
+      },
+    )
+  }
+
+  fn commit_branch<'r, 'p>(
+    branch: &mut crate::branch::Branch<'r, 'p, Self>,
+  ) -> Result<(), Self::CommitError> {
+    let new_pos = branch.token_pos.get();
+    match branch.parent() {
+      Some(parent) => parent.token_pos.set(new_pos),
+      None => branch.root().token_pos.set(new_pos),
+    }
+    Ok(())
+  }
+
+  fn abort_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>) {
+    // if branch.is_accurate_alternative.get() {
+    //   if let Some(parent) = branch.parent() {
+    //     parent.mark_accurate_alternative();
+    //   }
+    // }
+  }
+}
+
+#[derive(Clone, Default)]
+pub struct ParserBranchData {
   pub(crate) token_pos: Cell<usize>,
   pub(crate) is_accurate_alternative: Cell<bool>,
   pub(crate) value_idx: Cell<usize>,
 }
+
+// pub struct ParserBranch<'r, 'p>(Branch<'r, 'p, Parser<'p>>);
+// impl<'r, 'p> Deref for ParserBranch<'r, 'p> {
+//   type Target = Branch<'r, 'p, Parser<'p>>;
+
+//   fn deref(&self) -> &Self::Target {
+//     &self.0
+//   }
+// }
+
 pub enum ParseError {
   Msg(String),
   InvalidValueFormat(String),
 }
-impl<'p, 'b> ParserBranch<'p, 'b> {
+impl<'p, 'b> Branch<'p, 'b, Parser<'p>> {
   pub fn take_next_token(&self) -> Option<Token> {
-    let tokens = self.parser.tokens.borrow_mut();
+    let tokens = self.root().tokens.borrow_mut();
     let token_pos = self.token_pos.get();
     if token_pos < tokens.len() {
       let token = tokens[token_pos].clone();
@@ -104,24 +139,7 @@ impl<'p, 'b> ParserBranch<'p, 'b> {
     }
     drop(tokens);
 
-    self.parser.take_next_token()
-  }
-  pub fn commit(self) {
-    let new_pos = self.token_pos.get();
-    match self.parent {
-      Some(parent) => parent.token_pos.set(new_pos),
-      None => self.parser.token_pos.set(new_pos),
-    }
-  }
-
-  pub fn child<'c>(&'c self) -> ParserBranch<'p, 'c> {
-    ParserBranch {
-      parent: Some(self),
-      parser: &self.parser,
-      token_pos: self.token_pos.clone(),
-      is_accurate_alternative: self.is_accurate_alternative.clone(),
-      value_idx: self.value_idx.clone(),
-    }
+    self.root().take_next_token()
   }
 
   pub fn take_token_kind(&self, kind: TokenKind) -> Option<Token> {
@@ -130,7 +148,7 @@ impl<'p, 'b> ParserBranch<'p, 'b> {
       Some(token) => token,
       None => {
         child
-          .parser
+          .root()
           .add_error(ParseError::Msg("No more tokens".into()));
         return None;
       }
@@ -144,37 +162,20 @@ impl<'p, 'b> ParserBranch<'p, 'b> {
   }
 
   pub fn take_next_value(&self) -> Option<TokenValue> {
-    if !self.parser.values.is_initialized() {
+    if !self.root().values.is_initialized() {
       return None;
     }
-    let values = self.parser.values.borrow();
+    let values = self.root().values.borrow();
     values.get(self.value_idx.get()).cloned()
   }
 
   pub fn add_error(&self, error: ParseError) {
-    self.parser.add_error(error)
+    self.root().add_error(error)
   }
   pub fn mark_accurate_alternative(&self) {
     self.is_accurate_alternative.set(true);
   }
 }
-
-impl<'p, 'b> Drop for ParserBranch<'p, 'b> {
-  fn drop(&mut self) {
-    if self.is_accurate_alternative.get() {
-      if let Some(parent) = self.parent {
-        parent.mark_accurate_alternative();
-      }
-    }
-  }
-}
-
-fn foo() {
-  let data = Box::pin(String::new());
-  drop_pin_string(&data);
-}
-
-fn drop_pin_string(string: &String) {}
 
 /*
 from lpp.ast import (

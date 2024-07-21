@@ -3,10 +3,13 @@ use crate::{
     Block, Expression, ExpressionStatement, Ident, Int, LetStatement, Program, ReturnStatement,
     Statement,
   },
+  branch::Branch,
   token::TokenKind,
 };
 
-use super::parser::{ParseError, ParserBranch};
+use super::parser::{ParseError, Parser};
+
+type ParserBranch<'r, 'p> = Branch<'r, 'p, Parser<'r>>;
 
 trait Parsable: Sized {
   fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self>;
@@ -139,7 +142,7 @@ impl Parsable for Ident {
 #[cfg(test)]
 mod test {
   use super::Parsable;
-  use crate::{ast::Program, lexer::Lexer, parser::parser::Parser};
+  use crate::{ast::Program, branch::Branchable, lexer::Lexer, parser::parser::Parser};
 
   #[test]
   fn let_statement_test() {
