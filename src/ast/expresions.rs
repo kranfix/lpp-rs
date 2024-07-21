@@ -3,7 +3,7 @@ use enum_dispatch::enum_dispatch;
 use crate::tokened;
 
 use super::{
-  ast_node::{AstNode, NodeDisplay, Source},
+  ast_node::{AstNode, NodeDisplay},
   statements::Block,
   Token,
 };
@@ -31,11 +31,7 @@ impl Ident {
 }
 tokened!(Ident);
 impl NodeDisplay for Ident {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let literal = self.token.literal(source);
     write!(f, "{literal}")
   }
@@ -47,11 +43,7 @@ pub struct Int {
 }
 tokened!(Int);
 impl NodeDisplay for Int {
-  fn source_fmt<'s>(
-    &self,
-    _source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, _source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let val = self.value;
     write!(f, "{val}")
   }
@@ -73,11 +65,7 @@ impl Prefix {
 }
 tokened!(Prefix);
 impl NodeDisplay for Prefix {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.operator)?;
     if let Some(exp) = &self.rhs {
       exp.source_fmt(source, f)?;
@@ -104,11 +92,7 @@ impl Infix {
 }
 tokened!(Infix);
 impl NodeDisplay for Infix {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     self.lhs.source_fmt(source, f)?;
     write!(f, " {} ", self.operator)?;
     self.rhs.source_fmt(source, f)?;
@@ -127,11 +111,7 @@ impl Bool {
 }
 tokened!(Bool);
 impl NodeDisplay for Bool {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let literal = self.token.literal(source);
     write!(f, "{literal}")
   }
@@ -160,11 +140,7 @@ impl If {
 }
 tokened!(If);
 impl NodeDisplay for If {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "if(")?;
     self.condition.source_fmt(source, f)?;
     write!(f, ") {{")?;
@@ -195,11 +171,7 @@ impl Func {
 }
 tokened!(Func);
 impl NodeDisplay for Func {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let literal = self.token.literal(source);
     write!(f, "{literal}(")?;
     let mut is_first = true;
@@ -235,11 +207,7 @@ impl Call {
 }
 tokened!(Call);
 impl NodeDisplay for Call {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     self.func.source_fmt(source, f)?;
     write!(f, "(")?;
     if let Some(args) = &self.args {
@@ -267,11 +235,7 @@ impl StringLiteral {
 }
 tokened!(StringLiteral);
 impl NodeDisplay for StringLiteral {
-  fn source_fmt<'s>(
-    &self,
-    _source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, _source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.value)
   }
 }

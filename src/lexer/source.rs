@@ -1,7 +1,10 @@
-use std::{ops::Deref, rc::Rc, sync::Arc};
+use std::{fmt::Debug, ops::Deref, rc::Rc, sync::Arc};
 
-pub trait Source: Clone {
+pub trait Source: Clone + Debug {
   fn source(&self) -> &str;
+  fn after(&self, idx: usize) -> &str {
+    &self.source()[idx..]
+  }
 }
 
 impl<'a> Source for &'a str {

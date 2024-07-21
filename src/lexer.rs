@@ -6,6 +6,7 @@ use crate::types::Literal;
 use read_from::{ExtractStringError, ReadFrom};
 pub use source::Source;
 
+#[derive(Debug)]
 pub struct Lexer<Source> {
   source: Source,
   pos: usize,

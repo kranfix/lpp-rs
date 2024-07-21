@@ -9,6 +9,7 @@ pub trait Branchable: Sized {
   fn abort_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>);
 }
 
+#[derive(Debug)]
 pub struct Branch<'r, 'p, R: Branchable> {
   root: &'r R,
   parent: Option<&'p Branch<'r, 'p, R>>,

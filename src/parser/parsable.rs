@@ -5,20 +5,22 @@ use crate::{
   },
   branch::Branch,
   lexer::Source,
-  token::TokenKind,
+  token::{Token, TokenKind},
 };
 
 use super::parser::{ParseError, Parser};
 
-type ParserBranch<'r, 'p, S: Source> = Branch<'r, 'p, Parser<S>>;
+type ParserBranch<'r, 'p, S> = Branch<'r, 'p, Parser<S>>;
 
 trait Parsable: Sized {
   fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self>;
   fn parse<'p, 'b, S: Source>(parent_branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     let branch = parent_branch.child();
     let val = Self::raw_parse(&branch)?;
-    branch.commit();
-    Some(val)
+    match branch.commit() {
+      Ok(_) => Some(val),
+      Err(_err) => None,
+    }
   }
 }
 
@@ -111,7 +113,8 @@ impl Parsable for Block {
 
 impl Parsable for Expression {
   fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
-    todo!()
+    let ident = Ident::parse(branch)?;
+    Some(Expression::Ident(ident))
     // pub enum Expression {
     //   Ident(Ident),
     //   Int(Int),
@@ -143,7 +146,23 @@ impl Parsable for Ident {
 #[cfg(test)]
 mod test {
   use super::Parsable;
-  use crate::{ast::Program, branch::Branchable, lexer::Lexer, parser::parser::Parser};
+  use crate::{
+    ast::{AstNode, Ident, LetStatement, NodeFormatter},
+    branch::Branchable,
+    lexer::Lexer,
+    parser::parser::Parser,
+  };
+
+  #[test]
+  fn ident_parse_test() {
+    let source = " my_ident ";
+    let lexer = Lexer::new(&source);
+
+    let parser = Parser::new(lexer);
+    let ident = Ident::parse(&parser.branch()).unwrap();
+    let ident_name = ident.token_literal(&source);
+    assert_eq!(ident_name, "my_ident")
+  }
 
   #[test]
   fn let_statement_test() {
@@ -151,6 +170,8 @@ mod test {
     let lexer = Lexer::new(&source);
 
     let parser = Parser::new(lexer);
-    let program = Program::parse(&parser.branch());
+    let st = LetStatement::parse(&parser.branch()).unwrap();
+    let st_token_literal = NodeFormatter::new(source, &st).to_string();
+    assert_eq!(st_token_literal, "let my_var = other_var");
   }
 }

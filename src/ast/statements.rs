@@ -3,7 +3,7 @@ use enum_dispatch::enum_dispatch;
 use crate::tokened;
 
 use super::{
-  ast_node::{AstNode, NodeDisplay, Source},
+  ast_node::{AstNode, NodeDisplay},
   Expression, Ident, Token,
 };
 
@@ -16,11 +16,7 @@ impl Program {
   }
 }
 impl NodeDisplay for Program {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     for st in &self.statements {
       st.source_fmt(source, f)?;
       write!(f, ";")?;
@@ -29,7 +25,7 @@ impl NodeDisplay for Program {
   }
 }
 impl AstNode for Program {
-  fn token_literal<'s>(&self, source: Source<'s>) -> &'s str {
+  fn token_literal<'s>(&self, source: &'s str) -> &'s str {
     if self.statements.is_empty() {
       ""
     } else {
@@ -58,13 +54,9 @@ impl LetStatement {
 }
 tokened!(LetStatement);
 impl NodeDisplay for LetStatement {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
-    let ret = self.token_literal(source);
-    write!(f, "{ret} ")?;
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let let_st = self.token_literal(source);
+    write!(f, "{let_st} ")?;
     self.name.source_fmt(source, f)?;
     write!(f, " = ")?;
     self.value.source_fmt(source, f)
@@ -82,11 +74,7 @@ impl ReturnStatement {
 }
 tokened!(ReturnStatement);
 impl NodeDisplay for ReturnStatement {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let ret = self.token_literal(source);
     write!(f, "{ret} ")?;
     self.return_exp.source_fmt(source, f)
@@ -104,16 +92,12 @@ impl ExpressionStatement {
   }
 }
 impl AstNode for ExpressionStatement {
-  fn token_literal<'s>(&self, source: Source<'s>) -> &'s str {
+  fn token_literal<'s>(&self, source: &'s str) -> &'s str {
     self.expression.token_literal(source)
   }
 }
 impl NodeDisplay for ExpressionStatement {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     self.expression.source_fmt(source, f)
   }
 }
@@ -129,11 +113,7 @@ impl Block {
 }
 tokened!(Block);
 impl NodeDisplay for Block {
-  fn source_fmt<'s>(
-    &self,
-    source: Source<'s>,
-    f: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let mut is_first = true;
     for st in &self.statements {
       if !is_first {

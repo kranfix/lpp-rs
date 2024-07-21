@@ -1,5 +1,6 @@
 use std::cell::{Ref, RefCell, RefMut};
 
+#[derive(Debug)]
 pub struct DefaultCell<T>(RefCell<Option<T>>);
 
 impl<T> Default for DefaultCell<T> {

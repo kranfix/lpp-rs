@@ -23,6 +23,7 @@ enum Precedence {
   Call = 7,
 }
 
+#[derive(Debug)]
 pub struct Parser<S> {
   lexer: RefCell<Lexer<S>>,
   tokens: DefaultCell<Vec<Token>>,
@@ -108,7 +109,7 @@ impl<S: Source> Branchable for Parser<S> {
   }
 }
 
-#[derive(Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ParserBranchData {
   pub(crate) token_pos: Cell<usize>,
   pub(crate) is_accurate_alternative: Cell<bool>,
@@ -124,6 +125,7 @@ pub struct ParserBranchData {
 //   }
 // }
 
+#[derive(Debug)]
 pub enum ParseError {
   Msg(String),
   InvalidValueFormat(String),
@@ -139,7 +141,9 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
     }
     drop(tokens);
 
-    self.root().take_next_token()
+    let next_token = self.root().take_next_token()?;
+    self.token_pos.set(token_pos + 1);
+    Some(next_token)
   }
 
   pub fn take_token_kind(&self, kind: TokenKind) -> Option<Token> {
@@ -153,11 +157,12 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
         return None;
       }
     };
-    if token.kind() == kind {
-      child.commit();
-      Some(token)
-    } else {
-      None
+    if token.kind() != kind {
+      return None;
+    }
+    match child.commit() {
+      Ok(_) => Some(token),
+      Err(_) => None,
     }
   }
 
