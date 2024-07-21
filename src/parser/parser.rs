@@ -84,7 +84,7 @@ impl<'p> Parser<'p> {
 
 pub struct ParserBranch<'p, 'b> {
   pub(crate) parent: Option<&'b ParserBranch<'p, 'b>>,
-  pub(crate) parser: &'b Parser<'p>,
+  pub(crate) parser: &'p Parser<'p>,
   pub(crate) token_pos: Cell<usize>,
   pub(crate) is_accurate_alternative: Cell<bool>,
   pub(crate) value_idx: Cell<usize>,
