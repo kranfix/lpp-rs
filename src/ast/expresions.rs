@@ -3,12 +3,12 @@ use enum_dispatch::enum_dispatch;
 use crate::tokened;
 
 use super::{
-  ast_node::{NodeDisplay, Source},
+  ast_node::{AstNode, NodeDisplay, Source},
   statements::Block,
   Token,
 };
 
-#[enum_dispatch(NodeDisplay)]
+#[enum_dispatch(NodeDisplay, AstNode)]
 pub enum Expression {
   Ident(Ident),
   Int(Int),
@@ -42,13 +42,8 @@ impl NodeDisplay for Ident {
 }
 
 pub struct Int {
-  token: Token,
-  value: Option<i32>,
-}
-impl Int {
-  pub fn new(token: Token, value: Option<i32>) -> Int {
-    Int { token, value }
-  }
+  pub(crate) token: Token,
+  pub(crate) value: u32,
 }
 tokened!(Int);
 impl NodeDisplay for Int {
@@ -57,7 +52,7 @@ impl NodeDisplay for Int {
     _source: Source<'s>,
     f: &mut std::fmt::Formatter<'_>,
   ) -> std::fmt::Result {
-    let val = self.value.unwrap_or_default();
+    let val = self.value;
     write!(f, "{val}")
   }
 }

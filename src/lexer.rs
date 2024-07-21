@@ -4,8 +4,8 @@ use crate::token::{Token, TokenKind, TokenValue};
 use crate::types::Literal;
 use read_from::{ExtractStringError, ReadFrom};
 
-pub struct Lexer<T> {
-  source: T,
+pub struct Lexer<'l> {
+  source: &'l str,
   pos: usize,
   stop: Option<usize>,
 }
@@ -17,8 +17,8 @@ pub enum LexerStatus {
   ErrorAt(usize),
 }
 
-impl<T> Lexer<T> {
-  pub fn new(source: T) -> Lexer<T> {
+impl<'l> Lexer<'l> {
+  pub fn new(source: &'l str) -> Lexer<'l> {
     Lexer {
       source,
       pos: 0,
@@ -47,7 +47,7 @@ impl<T> Lexer<T> {
   }
 }
 
-impl<T: AsRef<str>> Iterator for Lexer<T> {
+impl<'l> Iterator for Lexer<'l> {
   type Item = (Token, Option<TokenValue>);
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -58,7 +58,7 @@ impl<T: AsRef<str>> Iterator for Lexer<T> {
     self.skip_whitespaces();
     let rem = self.rem();
     if rem.is_empty() {
-      self.stop = Some(self.source.as_ref().len());
+      self.stop = Some(self.source.len());
       return None;
     }
 
@@ -134,9 +134,9 @@ impl<T: AsRef<str>> Iterator for Lexer<T> {
   }
 }
 
-impl<T: AsRef<str>> Lexer<T> {
+impl<'l> Lexer<'l> {
   fn rem<'a>(&'a self) -> &'a str {
-    &self.source.as_ref()[self.pos..]
+    &self.source[self.pos..]
   }
 
   fn read_char(&self, target: char) -> Option<usize> {
@@ -184,7 +184,7 @@ mod test {
   fn parse_file() {
     let source = read_file("fixtures/tokens/tokens.lpp").unwrap();
     let expected = read_file("fixtures/tokens/result.snapshot").unwrap();
-    let mut lexer = Lexer::new(source);
+    let mut lexer = Lexer::new(&source);
     let status = lexer.status();
     assert_eq!(status, LexerStatus::Open);
 

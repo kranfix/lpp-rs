@@ -94,18 +94,20 @@ impl NodeDisplay for ReturnStatement {
 }
 
 pub struct ExpressionStatement {
-  token: Token,
   expression: Box<Expression>,
 }
 impl ExpressionStatement {
-  pub fn new(token: Token, expression: Expression) -> ExpressionStatement {
+  pub fn new(expression: Expression) -> ExpressionStatement {
     ExpressionStatement {
-      token,
       expression: Box::new(expression),
     }
   }
 }
-tokened!(ExpressionStatement);
+impl AstNode for ExpressionStatement {
+  fn token_literal<'s>(&self, source: Source<'s>) -> &'s str {
+    self.expression.token_literal(source)
+  }
+}
 impl NodeDisplay for ExpressionStatement {
   fn source_fmt<'s>(
     &self,

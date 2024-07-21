@@ -1,8 +1,12 @@
 use crate::ast::*;
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenKind, TokenValue};
+use crate::types::DefaultCell;
+use std::borrow::Borrow;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::iter::Iterator;
+use std::pin::Pin;
 
 type PrefixParseFn = Box<dyn Fn() -> Option<Expression>>;
 type InfixParseFn = Box<dyn Fn(Expression) -> Option<Expression>>;
@@ -20,63 +24,157 @@ enum Precedence {
   Call = 7,
 }
 
-pub struct Parser<T> {
-  lexer: Lexer<T>,
-  tokens: Vec<Token>,
-  token_pos: usize,
-  errors: Vec<String>,
-  values: Vec<(usize, TokenValue)>,
+pub struct Parser<'p> {
+  lexer: RefCell<Lexer<'p>>,
+  tokens: DefaultCell<Vec<Token>>,
+  token_pos: Cell<usize>,
+  errors: DefaultCell<Vec<ParseError>>,
+  values: DefaultCell<Vec<TokenValue>>,
+  value_idx: Cell<usize>,
 }
 
-impl<T> Parser<T> {
-  pub fn new(lexer: Lexer<T>) -> Parser<T> {
+impl<'p> Parser<'p> {
+  pub fn new(lexer: Lexer<'p>) -> Parser<'p> {
     Parser {
-      lexer,
-      tokens: Vec::new(),
-      token_pos: 0,
-      errors: Vec::new(),
-      values: Vec::new(),
+      lexer: RefCell::new(lexer),
+      tokens: DefaultCell::default(),
+      token_pos: Cell::new(0),
+      errors: DefaultCell::default(),
+      values: DefaultCell::default(),
+      value_idx: Cell::new(0),
     }
   }
 
-  pub(crate) fn add_token(&mut self, token: Token, token_value: Option<TokenValue>) {
+  pub(crate) fn add_token(&self, token: Token, token_value: Option<TokenValue>) {
+    let mut tokens = self.tokens.borrow_mut();
     if let Some(token_value) = token_value {
-      let idx = self.tokens.len();
-      self.values.push((idx, token_value))
+      let idx = tokens.len();
+      self.values.borrow_mut().push(token_value)
     }
-    self.tokens.push(token);
+    tokens.push(token);
   }
-  pub(crate) fn add_error(&mut self, msg: impl Into<String>) {
-    self.errors.push(msg.into());
+  pub(crate) fn add_error(&self, error: ParseError) {
+    let mut errors = self.errors.borrow_mut();
+    errors.push(error);
   }
-  pub(crate) fn current_token(&self) -> Option<&Token> {
-    self.tokens.last()
+  pub(crate) fn current_token(&self) -> Option<Token> {
+    self.tokens.borrow().last().cloned()
+  }
+  pub(crate) fn branch<'b: 'p>(&'b self) -> ParserBranch<'p, 'b> {
+    ParserBranch {
+      parent: None,
+      parser: &self,
+      token_pos: self.token_pos.clone(),
+      is_accurate_alternative: Cell::new(false),
+      value_idx: self.value_idx.clone(),
+    }
   }
 }
-impl<T: AsRef<str>> Parser<T> {
-  fn take_next_token(&mut self) -> Option<&Token> {
-    let (token, token_value) = self.lexer.next()?;
-    self.add_token(token, token_value);
+impl<'p> Parser<'p> {
+  fn take_next_token(&self) -> Option<Token> {
+    self.inspect_next_token()?;
     self.current_token()
   }
-
-  fn parse_program(&mut self) -> Program {
-    let mut statements = Vec::new();
-    while let Some(token) = self.take_next_token() {
-      if let TokenKind::EOF = token.kind() {
-        break;
-      }
-      if let Some(st) = self.parse_statement() {
-        statements.push(st)
-      }
-    }
-    Program::new(statements)
-  }
-
-  fn parse_statement(&self) -> Option<Statement> {
-    todo!()
+  fn inspect_next_token(&self) -> Option<()> {
+    let (token, token_value) = { self.lexer.borrow_mut().next()? };
+    self.add_token(token, token_value);
+    Some(())
   }
 }
+
+pub struct ParserBranch<'p, 'b> {
+  pub(crate) parent: Option<&'b ParserBranch<'p, 'b>>,
+  pub(crate) parser: &'b Parser<'p>,
+  pub(crate) token_pos: Cell<usize>,
+  pub(crate) is_accurate_alternative: Cell<bool>,
+  pub(crate) value_idx: Cell<usize>,
+}
+pub enum ParseError {
+  Msg(String),
+  InvalidValueFormat(String),
+}
+impl<'p, 'b> ParserBranch<'p, 'b> {
+  pub fn take_next_token(&self) -> Option<Token> {
+    let tokens = self.parser.tokens.borrow_mut();
+    let token_pos = self.token_pos.get();
+    if token_pos < tokens.len() {
+      let token = tokens[token_pos].clone();
+      self.token_pos.set(token_pos + 1);
+      return Some(token);
+    }
+    drop(tokens);
+
+    self.parser.take_next_token()
+  }
+  pub fn commit(self) {
+    let new_pos = self.token_pos.get();
+    match self.parent {
+      Some(parent) => parent.token_pos.set(new_pos),
+      None => self.parser.token_pos.set(new_pos),
+    }
+  }
+
+  pub fn child<'c>(&'c self) -> ParserBranch<'p, 'c> {
+    ParserBranch {
+      parent: Some(self),
+      parser: &self.parser,
+      token_pos: self.token_pos.clone(),
+      is_accurate_alternative: self.is_accurate_alternative.clone(),
+      value_idx: self.value_idx.clone(),
+    }
+  }
+
+  pub fn take_token_kind(&self, kind: TokenKind) -> Option<Token> {
+    let child = self.child();
+    let token = match child.take_next_token() {
+      Some(token) => token,
+      None => {
+        child
+          .parser
+          .add_error(ParseError::Msg("No more tokens".into()));
+        return None;
+      }
+    };
+    if token.kind() == kind {
+      child.commit();
+      Some(token)
+    } else {
+      None
+    }
+  }
+
+  pub fn take_next_value(&self) -> Option<TokenValue> {
+    if !self.parser.values.is_initialized() {
+      return None;
+    }
+    let values = self.parser.values.borrow();
+    values.get(self.value_idx.get()).cloned()
+  }
+
+  pub fn add_error(&self, error: ParseError) {
+    self.parser.add_error(error)
+  }
+  pub fn mark_accurate_alternative(&self) {
+    self.is_accurate_alternative.set(true);
+  }
+}
+
+impl<'p, 'b> Drop for ParserBranch<'p, 'b> {
+  fn drop(&mut self) {
+    if self.is_accurate_alternative.get() {
+      if let Some(parent) = self.parent {
+        parent.mark_accurate_alternative();
+      }
+    }
+  }
+}
+
+fn foo() {
+  let data = Box::pin(String::new());
+  drop_pin_string(&data);
+}
+
+fn drop_pin_string(string: &String) {}
 
 /*
 from lpp.ast import (
@@ -441,29 +539,6 @@ class Parser:
 
         return prefix_expression
 
-    def _parse_return_statement(self) -> Optional[ReturnStatement]:
-        assert self._current_token is not None
-        return_statement = ReturnStatement(token=self._current_token)
-
-        self._advance_tokens()
-
-        return_statement.return_value = self._parse_expression(Precedence.LOWEST)
-
-        assert self._peek_token is not None
-        if self._peek_token.token_type == TokenType.SEMICOLON:
-            self._advance_tokens()
-
-        return return_statement
-
-    def _parse_statement(self) -> Optional[Statement]:
-        assert self._current_token is not None
-        if self._current_token.token_type == TokenType.LET:
-            return self._parse_let_statement()
-        elif self._current_token.token_type == TokenType.RETURN:
-            return self._parse_return_statement()
-        else:
-            return self._parse_expression_statement()
-
     def _parse_string_literal(self) -> Expression:
         assert self._current_token is not None
         return StringLiteral(token=self._current_token,
@@ -502,4 +577,72 @@ class Parser:
             TokenType.TRUE: self._parse_boolean,
             TokenType.STRING: self._parse_string_literal
         }
+*/
+
+// Let, call, block
+// let a = 5;
+// {
+//   let b = a + 3;
+//   let inc = fn(x) { return x + 1 };
+//   inc(b);
+// }
+
+/*
+Program
+ - Vec<Statements>
+
+
+parser = Parser {
+  tokens: [t1, t2]
+  token_pos: 0
+}
+
+root_branch = { parent: None, parser: &parser, token_pos: 0 }
+
+// First statemement: Try Let statement
+branch_let = root_branch.branch() // { parent: Some(root_branch), parser: &parser, token_pos: 0 }
+match branch_let.take_next_token() { // branch_let = { parent: Some(root_branch), parser: &parser, token_pos: 1 }
+  Some(Token {kind: TokenKind.Let, ..}) => {}
+  _ => return None;
+}
+
+match branch_let.take_next_token() { // branch_let = { parent: Some(root_branch), parser: &parser, token_pos: 2 }
+  Some(Token {kind: TokenIdent.Ident, ..}) => {}
+  _ => return None;
+}
+
+match branch_let.take_next_token() { // branch_let = { parent: Some(root_branch), parser: &parser, token_pos: 3 }
+  Some(Token {kind: TokenIdent.Assing, ..}) => {}
+  _ => return None;
+}
+
+let branch_let_exp = branch_let.branch(); // branch_let     = { parent: Some(root_branch), parser: &parser, token_pos: 3 }
+                                          // branch_let_exp = { parent: Some(branch_let), parser: &parser, token_pos: 3 }
+
+Expression::parse(branch_let_expression)?; // branch_let     = { parent: Some(root_branch), parser: &parser, token_pos: 3 }
+                                           // branch_let_exp = { parent: Some(branch_let), parser: &parser, token_pos: 3 }
+                                           //   branch_let_exp = { parent: Some(branch_let), parser: &parser, token_pos: 4 }
+                                           //   ...
+                                           //   branch_let_exp = { parent: Some(branch_let), parser: &parser, token_pos: 21 }
+                                           // branch_let     = { parent: Some(root_branch), parser: &parser, token_pos: 21 }
+match branch_let.take_next_token() { // branch_let = { parent: Some(root_branch), parser: &parser, token_pos: 22 }
+  Some(Token {kind: TokenIdent.Semicolon, ..}) => {}
+  _ => return None;
+}
+                    // root_branch = { parent: None, parser: &parser, token_pos: 0 }
+branch_let.commit() // branch_let = { parent: Some(root_branch), parser: &parser, token_pos: 22 }
+                    // root_branch = { parent: None, parser: &parser, token_pos: 22 }
+
+// Second statement: Try Let statement
+let branch_let = root_branch.branch();
+LetStatement::parse(branch_let) // fails and doesn't commit
+
+// Second statement: Try Call statement
+let branch_call = root_branch.branch();
+CallStatement::parse(branch_call) // fails and doesn't commit
+
+// Second statement: Try Block statement
+let branch_block = root_branch.branch();
+BlockStatement::parse(branch_block) // success and commit
+
 */

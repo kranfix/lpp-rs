@@ -1,4 +1,7 @@
-use std::ops::{Deref, Range};
+use std::{
+  ops::{Deref, Range},
+  rc::Rc,
+};
 
 use crate::types::Literal;
 
@@ -24,7 +27,7 @@ impl Token {
 }
 
 /// Supported `TokenType`s in LPP
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenKind {
   Assign,
   Comma,
@@ -75,10 +78,10 @@ static LITERALS: [(&str, TokenKind); 7] = [
   ("true", TokenKind::True),
 ];
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TokenValue {
   Int(u32),
-  String(String),
+  String(Rc<str>),
   Bool(bool),
 }
 
@@ -94,6 +97,6 @@ impl From<bool> for TokenValue {
 }
 impl From<String> for TokenValue {
   fn from(value: String) -> Self {
-    TokenValue::String(value)
+    TokenValue::String(value.into())
   }
 }
