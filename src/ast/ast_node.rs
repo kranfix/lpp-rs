@@ -34,7 +34,7 @@ pub struct NodeFormatter<'n, N> {
   source: &'n str,
   node: &'n N,
 }
-impl<'n, N: NodeDisplay> NodeFormatter<'n, N> {
+impl<'n, N> NodeFormatter<'n, N> {
   pub fn new(source: &'n str, node: &'n N) -> NodeFormatter<'n, N> {
     NodeFormatter { source, node }
   }
