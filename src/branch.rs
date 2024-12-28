@@ -1,7 +1,8 @@
+use dupe::Dupe;
 use std::ops::Deref;
 
 pub trait Branchable: Sized {
-  type BranchData: Clone;
+  type BranchData: Dupe;
   type CommitError;
 
   fn branch<'r>(&'r self) -> Branch<'r, 'r, Self>;
@@ -43,7 +44,7 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
     Branch {
       root: &self.root,
       parent: Some(self),
-      data: self.data.clone(),
+      data: self.data.dupe(),
       committed: false,
     }
   }

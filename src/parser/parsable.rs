@@ -113,18 +113,26 @@ impl Parsable for Block {
 
 impl Parsable for Expression {
   fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
-    let ident = Ident::parse(branch)?;
-    Some(Expression::Ident(ident))
+    if let Some(ident) = Ident::parse(branch) {
+      return Some(Expression::Ident(ident));
+    }
+
+    if let Some(int) = Int::parse(branch) {
+      return Some(Expression::Int(int));
+    }
+
+    None
+
     // pub enum Expression {
-    //   Ident(Ident),
-    //   Int(Int),
-    //   Prefix(Prefix),
-    //   Infix(Infix),
-    //   Bool(Bool),
-    //   If(If),
-    //   Func(Func),
-    //   Call(Call),
-    //   StringLiteral(StringLiteral),
+    //   [x] Ident(Ident),
+    //   [ ] Int(Int),
+    //   [ ] Prefix(Prefix),
+    //   [ ] Infix(Infix),
+    //   [ ] Bool(Bool),
+    //   [ ] If(If),
+    //   [ ] Func(Func),
+    //   [ ] Call(Call),
+    //   [ ] StringLiteral(StringLiteral),
     // }
   }
 }
@@ -136,12 +144,12 @@ impl Parsable for Ident {
   }
 }
 
-// impl Parsable for Int {
-//   fn raw_parse<'p, 'b>(branch: &'b ParserBranch<'p, 'b>) -> Option<Self> {
-//     let int_token = branch.take_token_kind(TokenKind::Int)?;
-//     Int { token, value:  }
-//   }
-// }
+impl Parsable for Int {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+    let int_token = branch.take_token_kind(TokenKind::Int)?;
+    Some(Int::new(int_token))
+  }
+}
 
 #[cfg(test)]
 mod test {

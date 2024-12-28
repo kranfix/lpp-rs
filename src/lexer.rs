@@ -26,7 +26,7 @@ impl<S> Lexer<S> {
     S: Source,
   {
     Lexer {
-      source: source.clone(),
+      source: source.dupe(),
       pos: 0,
       stop: None,
     }

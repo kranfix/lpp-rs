@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use enum_dispatch::enum_dispatch;
 
 use crate::tokened;
@@ -39,12 +41,26 @@ impl NodeDisplay for Ident {
 
 pub struct Int {
   pub(crate) token: Token,
-  pub(crate) value: u32,
+  pub(crate) value: Cell<Option<u32>>,
+}
+impl Int {
+  pub fn new(token: Token) -> Int {
+    Int {
+      token,
+      value: Cell::default(),
+    }
+  }
 }
 tokened!(Int);
 impl NodeDisplay for Int {
-  fn source_fmt<'s>(&self, _source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let val = self.value;
+  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let val = match self.value.get() {
+      Some(val) => val,
+      None => {
+        let text = &source[self.token.range()];
+        text.parse().unwrap()
+      }
+    };
     write!(f, "{val}")
   }
 }

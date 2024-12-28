@@ -1,3 +1,5 @@
+use dupe::{Dupe, OptionDupedExt};
+
 use crate::ast::*;
 use crate::branch::{Branch, Branchable};
 use crate::lexer::{Lexer, Source};
@@ -58,7 +60,7 @@ impl<S> Parser<S> {
     errors.push(error);
   }
   pub(crate) fn current_token(&self) -> Option<Token> {
-    self.tokens.borrow().last().cloned()
+    self.tokens.borrow().last().duped()
   }
 }
 impl<S: Source> Parser<S> {
@@ -82,9 +84,9 @@ impl<S: Source> Branchable for Parser<S> {
     crate::branch::Branch::new(
       self,
       ParserBranchData {
-        token_pos: self.token_pos.clone(),
+        token_pos: self.token_pos.dupe(),
         is_accurate_alternative: Cell::new(false),
-        value_idx: self.value_idx.clone(),
+        value_idx: self.value_idx.dupe(),
       },
     )
   }
@@ -109,7 +111,7 @@ impl<S: Source> Branchable for Parser<S> {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Dupe)]
 pub struct ParserBranchData {
   pub(crate) token_pos: Cell<usize>,
   pub(crate) is_accurate_alternative: Cell<bool>,
@@ -135,7 +137,7 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
     let tokens = self.root().tokens.borrow_mut();
     let token_pos = self.token_pos.get();
     if token_pos < tokens.len() {
-      let token = tokens[token_pos].clone();
+      let token = tokens[token_pos].dupe();
       self.token_pos.set(token_pos + 1);
       return Some(token);
     }
@@ -171,7 +173,7 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
       return None;
     }
     let values = self.root().values.borrow();
-    values.get(self.value_idx.get()).cloned()
+    values.get(self.value_idx.get()).duped()
   }
 
   pub fn add_error(&self, error: ParseError) {

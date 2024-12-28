@@ -1,6 +1,8 @@
 use std::{fmt::Debug, ops::Deref, rc::Rc, sync::Arc};
 
-pub trait Source: Clone + Debug {
+use dupe::Dupe;
+
+pub trait Source: Debug + Dupe {
   fn source(&self) -> &str;
   fn after(&self, idx: usize) -> &str {
     &self.source()[idx..]

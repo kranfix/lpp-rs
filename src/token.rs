@@ -3,9 +3,11 @@ use std::{
   rc::Rc,
 };
 
+use dupe::Dupe;
+
 use crate::types::Literal;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Dupe)]
 pub struct Token {
   kind: TokenKind,
   start: usize,
@@ -27,7 +29,7 @@ impl Token {
 }
 
 /// Supported `TokenType`s in LPP
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Dupe)]
 pub enum TokenKind {
   Assign,
   Comma,
@@ -78,7 +80,7 @@ static LITERALS: [(&str, TokenKind); 7] = [
   ("true", TokenKind::True),
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Dupe)]
 pub enum TokenValue {
   Int(u32),
   String(Rc<str>),
