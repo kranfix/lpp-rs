@@ -79,7 +79,7 @@ impl<S: Source> Branchable for Parser<S> {
 
   type CommitError = ();
 
-  fn branch<'r>(&'r self) -> crate::branch::Branch<'r, Self> {
+  fn branch(&self) -> crate::branch::Branch<'_, Self> {
     crate::branch::Branch::new(
       self,
       ParserBranchData {
@@ -90,9 +90,7 @@ impl<S: Source> Branchable for Parser<S> {
     )
   }
 
-  fn commit_branch<'p>(
-    branch: &mut crate::branch::Branch<'p, Self>,
-  ) -> Result<(), Self::CommitError> {
+  fn commit_branch(branch: &mut crate::branch::Branch<'_, Self>) -> Result<(), Self::CommitError> {
     let new_pos = branch.token_pos.get();
     let new_value_idx = branch.value_idx.get();
     match branch.parent() {
@@ -109,7 +107,7 @@ impl<S: Source> Branchable for Parser<S> {
     Ok(())
   }
 
-  fn on_drop_branch<'p>(branch: &mut Branch<'p, Self>) {
+  fn on_drop_branch(branch: &mut Branch<'_, Self>) {
     if branch.is_accurate_alternative.get() {
       if let Some(parent) = branch.parent() {
         parent.mark_accurate_alternative();

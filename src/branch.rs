@@ -5,9 +5,9 @@ pub trait Branchable: Sized {
   type BranchData: Dupe;
   type CommitError;
 
-  fn branch<'r>(&'r self) -> Branch<'r, Self>;
-  fn commit_branch<'p>(branch: &mut Branch<'p, Self>) -> Result<(), Self::CommitError>;
-  fn on_drop_branch<'p>(branch: &mut Branch<'p, Self>);
+  fn branch(&self) -> Branch<'_, Self>;
+  fn commit_branch(branch: &mut Branch<'_, Self>) -> Result<(), Self::CommitError>;
+  fn on_drop_branch(branch: &mut Branch<'_, Self>);
 
   fn value_idx(&self) -> usize;
 }
