@@ -17,7 +17,6 @@ pub struct Branch<'p, R: Branchable> {
   root: &'p R,
   parent: Option<&'p Branch<'p, R>>,
   data: R::BranchData,
-  value_idx: Cell<usize>,
 }
 impl<'p, R: 'p + Branchable> Deref for Branch<'p, R> {
   type Target = R::BranchData;
@@ -52,7 +51,6 @@ impl<'p, R: Branchable> Branch<'p, R> {
       root,
       parent: None,
       data,
-      value_idx: Cell::new(root.value_idx()),
     }
   }
   pub fn root(&self) -> &'p R {
@@ -67,7 +65,6 @@ impl<'p, R: Branchable> Branch<'p, R> {
         root: &self.root,
         parent: Some(self),
         data: self.data.dupe(),
-        value_idx: Cell::new(self.root.value_idx()),
       },
       committed: false,
     }
