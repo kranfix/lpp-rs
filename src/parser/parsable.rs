@@ -1,20 +1,20 @@
 use crate::{
   ast::{
-    Block, Expression, ExpressionStatement, Ident, Int, LetStatement, Program, ReturnStatement,
-    Statement,
+    Block, Bool, Expression, ExpressionStatement, Ident, Int, LetStatement, Prefix, Program,
+    ReturnStatement, Statement,
   },
   branch::Branch,
   lexer::Source,
-  token::{Token, TokenKind},
+  token::TokenKind,
 };
 
 use super::parser::{ParseError, Parser};
 
 type ParserBranch<'r, 'p, S> = Branch<'r, 'p, Parser<S>>;
 
-trait Parsable: Sized {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self>;
-  fn parse<'p, 'b, S: Source>(parent_branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+trait Parsable<Output = Self>: Sized {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Output>;
+  fn parse<'p, 'b, S: Source>(parent_branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Output> {
     let branch = parent_branch.child();
     let val = Self::raw_parse(&branch)?;
     match branch.commit() {
@@ -121,18 +121,22 @@ impl Parsable for Expression {
       return Some(Expression::Int(int));
     }
 
+    if let Some(boolean) = Bool::parse(branch) {
+      return Some(Expression::Bool(boolean));
+    }
+
     None
 
     // pub enum Expression {
     //   [x] Ident(Ident),
-    //   [ ] Int(Int),
-    //   [ ] Prefix(Prefix),
-    //   [ ] Infix(Infix),
-    //   [ ] Bool(Bool),
+    //   [x] Int(Int),
+    //   [x] Bool(Bool),
+    //   [ ] StringLiteral(StringLiteral),
     //   [ ] If(If),
     //   [ ] Func(Func),
     //   [ ] Call(Call),
-    //   [ ] StringLiteral(StringLiteral),
+    //   [x] Prefix(Prefix),
+    //   [ ] Infix(Infix),
     // }
   }
 }
@@ -151,11 +155,40 @@ impl Parsable for Int {
   }
 }
 
+impl Parsable for Bool {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+    if let Some(token) = branch.take_token_kind(TokenKind::True) {
+      return Some(Bool::new(token, true));
+    }
+    if let Some(token) = branch.take_token_kind(TokenKind::False) {
+      return Some(Bool::new(token, false));
+    }
+    None
+  }
+}
+
+/// !a
+/// -a
+impl Parsable for Prefix {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+    for token_kind in [TokenKind::Neg, TokenKind::Minus] {
+      let branch = branch.child();
+      if let Some(prefix_token) = branch.take_token_kind(token_kind) {
+        if let Some(expression) = Expression::parse(&branch) {
+          return Some(Prefix::new(prefix_token, expression));
+        }
+      }
+    }
+
+    None
+  }
+}
+
 #[cfg(test)]
 mod test {
   use super::Parsable;
   use crate::{
-    ast::{AstNode, Ident, LetStatement, NodeFormatter},
+    ast::{AstNode, Bool, Ident, Int, LetStatement, NodeFormatter, Prefix},
     branch::Branchable,
     lexer::Lexer,
     parser::parser::Parser,
@@ -173,6 +206,37 @@ mod test {
   }
 
   #[test]
+  fn int_parse_test() {
+    let source = " 54321 ";
+    let lexer = Lexer::new(&source);
+
+    let parser = Parser::new(lexer);
+    let int = Int::parse(&parser.branch()).unwrap();
+    let int_text = NodeFormatter::new(source, &int).to_string();
+    assert_eq!(int_text, "54321");
+  }
+
+  #[test]
+  fn false_parse_test() {
+    let source = " false ";
+    let lexer = Lexer::new(&source);
+
+    let parser = Parser::new(lexer);
+    let boolean = Bool::parse(&parser.branch()).unwrap();
+    assert_eq!(boolean.value(), false);
+  }
+
+  #[test]
+  fn true_parse_test() {
+    let source = " true ";
+    let lexer = Lexer::new(&source);
+
+    let parser = Parser::new(lexer);
+    let boolean = Bool::parse(&parser.branch()).unwrap();
+    assert_eq!(boolean.value(), true);
+  }
+
+  #[test]
   fn let_statement_test() {
     let source = "  let my_var = other_var; ";
     let lexer = Lexer::new(&source);
@@ -181,5 +245,27 @@ mod test {
     let st = LetStatement::parse(&parser.branch()).unwrap();
     let st_token_literal = NodeFormatter::new(source, &st).to_string();
     assert_eq!(st_token_literal, "let my_var = other_var");
+  }
+
+  #[test]
+  fn prefix_negation_parse_test() {
+    let source = " !false ";
+    let lexer = Lexer::new(&source);
+
+    let parser = Parser::new(lexer);
+    let prefix = Prefix::parse(&parser.branch()).unwrap();
+    let prefix = NodeFormatter::new(source, &prefix).to_string();
+    assert_eq!(prefix, "!false");
+  }
+
+  #[test]
+  fn prefix_minus_parse_test() {
+    let source = " -5 ";
+    let lexer = Lexer::new(&source);
+
+    let parser = Parser::new(lexer);
+    let prefix = Prefix::parse(&parser.branch()).unwrap();
+    let prefix = NodeFormatter::new(source, &prefix).to_string();
+    assert_eq!(prefix, "-5");
   }
 }

@@ -102,7 +102,7 @@ impl<S: Source> Branchable for Parser<S> {
     Ok(())
   }
 
-  fn abort_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>) {
+  fn on_drop_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>) {
     if branch.is_accurate_alternative.get() {
       if let Some(parent) = branch.parent() {
         parent.mark_accurate_alternative();

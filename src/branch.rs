@@ -7,7 +7,7 @@ pub trait Branchable: Sized {
 
   fn branch<'r>(&'r self) -> Branch<'r, 'r, Self>;
   fn commit_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>) -> Result<(), Self::CommitError>;
-  fn abort_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>);
+  fn on_drop_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>);
 }
 
 #[derive(Debug)]
@@ -53,13 +53,15 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
     self.committed = true;
     Ok(())
   }
-  pub fn abort(self) {}
+  pub fn abort(self) {
+    drop(self)
+  }
 }
 
 impl<'r, 'p, R: 'r + Branchable> Drop for Branch<'r, 'p, R> {
   fn drop(&mut self) {
     if !self.committed {
-      R::abort_branch(self)
+      R::on_drop_branch(self)
     }
   }
 }

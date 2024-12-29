@@ -65,31 +65,31 @@ impl NodeDisplay for Int {
   }
 }
 
+/// Suported cases
+/// - -exp
+/// - !exp
 pub struct Prefix {
   token: Token,
-  operator: String,
-  rhs: Option<Box<Expression>>,
+  rhs: Box<Expression>,
 }
 impl Prefix {
-  pub fn new(token: Token, operator: String, rhs: Option<Box<Expression>>) -> Prefix {
+  pub fn new(token: Token, rhs: impl Into<Box<Expression>>) -> Prefix {
     Prefix {
       token,
-      operator,
-      rhs,
+      rhs: rhs.into(),
     }
   }
 }
 tokened!(Prefix);
 impl NodeDisplay for Prefix {
   fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.operator)?;
-    if let Some(exp) = &self.rhs {
-      exp.source_fmt(source, f)?;
-    }
+    write!(f, "{}", self.token.literal(source))?;
+    self.rhs.source_fmt(source, f)?;
     Ok(())
   }
 }
 
+/// exp1 operator exp2
 pub struct Infix {
   token: Token,
   lhs: Box<Expression>,
@@ -123,6 +123,9 @@ pub struct Bool {
 impl Bool {
   pub fn new(token: Token, value: bool) -> Bool {
     Bool { token, value }
+  }
+  pub fn value(&self) -> bool {
+    self.value
   }
 }
 tokened!(Bool);
