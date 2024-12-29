@@ -5,22 +5,21 @@ pub trait Branchable: Sized {
   type BranchData: Dupe;
   type CommitError;
 
-  fn branch<'r>(&'r self) -> Branch<'r, 'r, Self>;
-  fn commit_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>) -> Result<(), Self::CommitError>;
-  fn on_drop_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>);
+  fn branch<'r>(&'r self) -> Branch<'r, Self>;
+  fn commit_branch<'p>(branch: &mut Branch<'p, Self>) -> Result<(), Self::CommitError>;
+  fn on_drop_branch<'p>(branch: &mut Branch<'p, Self>);
 
   fn value_idx(&self) -> usize;
 }
 
 #[derive(Debug)]
-pub struct Branch<'r, 'p, R: Branchable> {
-  root: &'r R,
-  parent: Option<&'p Branch<'r, 'p, R>>,
+pub struct Branch<'p, R: Branchable> {
+  root: &'p R,
+  parent: Option<&'p Branch<'p, R>>,
   data: R::BranchData,
   value_idx: Cell<usize>,
-  //committed: bool,
 }
-impl<'r, 'p, R: 'r + Branchable> Deref for Branch<'r, 'p, R> {
+impl<'p, R: 'p + Branchable> Deref for Branch<'p, R> {
   type Target = R::BranchData;
 
   fn deref(&self) -> &Self::Target {
@@ -28,18 +27,18 @@ impl<'r, 'p, R: 'r + Branchable> Deref for Branch<'r, 'p, R> {
   }
 }
 
-pub(crate) struct CommitableBranch<'r, 'p, R: Branchable> {
-  branch: Branch<'r, 'p, R>,
+pub(crate) struct CommitableBranch<'p, R: Branchable> {
+  branch: Branch<'p, R>,
   committed: bool,
 }
-impl<'r, 'p, R: Branchable> Deref for CommitableBranch<'r, 'p, R> {
-  type Target = Branch<'r, 'p, R>;
+impl<'p, R: Branchable> Deref for CommitableBranch<'p, R> {
+  type Target = Branch<'p, R>;
 
   fn deref(&self) -> &Self::Target {
     &self.branch
   }
 }
-impl<'r, 'p, R: Branchable> CommitableBranch<'r, 'p, R> {
+impl<'p, R: Branchable> CommitableBranch<'p, R> {
   pub fn commit(mut self) -> Result<(), R::CommitError> {
     Branchable::commit_branch(&mut self.branch)?;
     self.committed = true;
@@ -47,23 +46,22 @@ impl<'r, 'p, R: Branchable> CommitableBranch<'r, 'p, R> {
   }
 }
 
-impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
-  pub fn new(root: &'r R, data: R::BranchData) -> Self {
+impl<'p, R: Branchable> Branch<'p, R> {
+  pub fn new(root: &'p R, data: R::BranchData) -> Self {
     Branch {
       root,
       parent: None,
       data,
-      //committed: false,
       value_idx: Cell::new(root.value_idx()),
     }
   }
-  pub fn root(&self) -> &'r R {
+  pub fn root(&self) -> &'p R {
     &self.root
   }
   pub fn parent(&self) -> Option<&'p Self> {
     self.parent
   }
-  pub(crate) fn child<'b>(&'b self) -> CommitableBranch<'r, 'b, R> {
+  pub(crate) fn child<'b: 'p>(&'b self) -> CommitableBranch<'b, R> {
     CommitableBranch {
       branch: Branch {
         root: &self.root,
@@ -75,9 +73,9 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
     }
   }
 
-  pub fn scoped<Out, F>(self: &'p Branch<'r, 'p, R>, f: F) -> Option<Out>
+  pub fn scoped<Out, F>(self: &'p Branch<'p, R>, f: F) -> Option<Out>
   where
-    F: for<'b> FnOnce(&'b Branch<'r, 'b, R>) -> Option<Out>,
+    F: for<'b> FnOnce(&'b Branch<'b, R>) -> Option<Out>,
   {
     let branch = self.child();
     let val = f(&branch)?;
@@ -88,7 +86,7 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
   }
 }
 
-impl<'r, 'p, R: 'r + Branchable> Drop for CommitableBranch<'r, 'p, R> {
+impl<'p, R: 'p + Branchable> Drop for CommitableBranch<'p, R> {
   fn drop(&mut self) {
     if !self.committed {
       R::on_drop_branch(&mut self.branch)

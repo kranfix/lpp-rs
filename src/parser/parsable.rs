@@ -11,15 +11,15 @@ use crate::{
 use super::parser::{ParseError, Parser};
 
 trait Parsable: Sized {
-  fn raw_parse<'r, 'b, S: Source>(branch: &'b Branch<'r, 'b, Parser<S>>) -> Option<Self>;
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self>;
 
-  fn parse<'r, 'b, S: Source>(parent_branch: &'b Branch<'r, 'b, Parser<S>>) -> Option<Self> {
+  fn parse<'b, S: Source>(parent_branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     parent_branch.scoped(Self::raw_parse)
   }
 }
 
 impl Parsable for Program {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     let mut statements = Vec::new();
     while let Some(st) = Statement::parse(branch) {
       statements.push(st)
@@ -30,7 +30,7 @@ impl Parsable for Program {
 }
 
 impl Parsable for Statement {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     if let Some(st) = LetStatement::parse(branch) {
       return Some(Statement::Let(st));
     }
@@ -48,7 +48,7 @@ impl Parsable for Statement {
 }
 
 impl Parsable for LetStatement {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     let let_token = branch.take_token_kind(TokenKind::Let)?;
     let name = Ident::parse(branch)?;
     branch.take_token_kind(TokenKind::Assign)?;
@@ -61,7 +61,7 @@ impl Parsable for LetStatement {
 }
 
 impl Parsable for ReturnStatement {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     let return_token = branch.take_token_kind(TokenKind::Return)?;
     let return_exp = Expression::parse(branch)?;
     branch.take_token_kind(TokenKind::Semicolon)?;
@@ -72,7 +72,7 @@ impl Parsable for ReturnStatement {
 }
 
 impl Parsable for ExpressionStatement {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     let expression = Expression::parse(branch)?;
     branch.take_token_kind(TokenKind::Semicolon)?;
     let st = ExpressionStatement::new(expression);
@@ -81,7 +81,7 @@ impl Parsable for ExpressionStatement {
 }
 
 impl Parsable for Block {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     let token = branch.take_token_kind(TokenKind::LBrace)?;
 
     let mut statements = Vec::new();
@@ -103,7 +103,7 @@ impl Parsable for Block {
 }
 
 impl Parsable for Expression {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     if let Some(ident) = Ident::parse(branch) {
       return Some(Expression::Ident(ident));
     }
@@ -137,21 +137,21 @@ impl Parsable for Expression {
 }
 
 impl Parsable for Ident {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     let ident_token = branch.take_token_kind(TokenKind::Ident)?;
     Some(Ident::new(ident_token))
   }
 }
 
 impl Parsable for Int {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     let (token, value) = branch.take_token_kind_and_value(IntTokenKind)?;
     Some(Int::new(token, value))
   }
 }
 
 impl Parsable for Bool {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     if let Some(token) = branch.take_token_kind(TokenKind::True) {
       return Some(Bool::new(token, true));
     }
@@ -163,7 +163,7 @@ impl Parsable for Bool {
 }
 
 impl Parsable for StringLiteral {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     if let Some((token, value)) = branch.take_token_kind_and_value(StringTokenKind) {
       return Some(StringLiteral::new(token, value));
     }
@@ -172,7 +172,7 @@ impl Parsable for StringLiteral {
 }
 
 impl Parsable for If {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     let if_token = branch.take_token_kind(TokenKind::If)?;
     let _lparent = branch.take_token_kind(TokenKind::LParen)?;
     let condition = Expression::parse(branch)?;
@@ -198,7 +198,7 @@ static _PREFIX_TOKENS: [TokenKind; 2] = [TokenKind::Neg, TokenKind::Minus];
 
 /// (! | -)exp
 impl Parsable for Prefix {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+  fn raw_parse<'b, S: Source>(branch: &'b Branch<'b, Parser<S>>) -> Option<Self> {
     let prefix_token = branch.take_token_kind_when(|kind| _PREFIX_TOKENS.contains(&kind))?;
     let expression = Expression::parse(&branch)?;
     Some(Prefix::new(prefix_token, expression))

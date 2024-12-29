@@ -79,7 +79,7 @@ impl<S: Source> Branchable for Parser<S> {
 
   type CommitError = ();
 
-  fn branch<'r>(&'r self) -> crate::branch::Branch<'r, 'r, Self> {
+  fn branch<'r>(&'r self) -> crate::branch::Branch<'r, Self> {
     crate::branch::Branch::new(
       self,
       ParserBranchData {
@@ -90,8 +90,8 @@ impl<S: Source> Branchable for Parser<S> {
     )
   }
 
-  fn commit_branch<'r, 'p>(
-    branch: &mut crate::branch::Branch<'r, 'p, Self>,
+  fn commit_branch<'p>(
+    branch: &mut crate::branch::Branch<'p, Self>,
   ) -> Result<(), Self::CommitError> {
     let new_pos = branch.token_pos.get();
     let new_value_idx = branch.value_idx.get();
@@ -109,7 +109,7 @@ impl<S: Source> Branchable for Parser<S> {
     Ok(())
   }
 
-  fn on_drop_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>) {
+  fn on_drop_branch<'p>(branch: &mut Branch<'p, Self>) {
     if branch.is_accurate_alternative.get() {
       if let Some(parent) = branch.parent() {
         parent.mark_accurate_alternative();
@@ -143,7 +143,7 @@ pub enum ParseError {
   Msg(String),
   InvalidValueFormat(String),
 }
-impl<'r, 'p, S: Source> Branch<'r, 'p, Parser<S>> {
+impl<'p, S: Source> Branch<'p, Parser<S>> {
   pub fn take_next_token(&self) -> Option<Token> {
     let tokens = self.root().tokens.borrow_mut();
     let token_pos = self.token_pos.get();
@@ -173,7 +173,7 @@ impl<'r, 'p, S: Source> Branch<'r, 'p, Parser<S>> {
       let token_value = branch.root().values.borrow()[value_idx].dupe();
       let value = Kind::from_token_value(token_value)?;
 
-      self.value_idx.set(value_idx + 1);
+      branch.value_idx.set(value_idx + 1);
 
       Some((token, value))
     })
@@ -193,7 +193,7 @@ impl<'r, 'p, S: Source> Branch<'r, 'p, Parser<S>> {
   }
   fn take_token_kind_on<T>(
     &self,
-    eval: impl FnOnce(&'_ Branch<'_, '_, Parser<S>>, Token) -> Option<T>,
+    eval: impl FnOnce(&'_ Branch<'_, Parser<S>>, Token) -> Option<T>,
   ) -> Option<T> {
     let child = self.child();
     let token = match child.take_next_token() {
