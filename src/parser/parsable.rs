@@ -124,6 +124,10 @@ impl RawParsable for Expression {
       return Some(Expression::StringLiteral(string_literal));
     }
 
+    if let Some(st) = If::parse(branch) {
+      return Some(Expression::If(st));
+    }
+
     None
 
     // pub enum Expression {
