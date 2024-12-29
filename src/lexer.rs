@@ -183,17 +183,17 @@ impl<S: Source> Lexer<S> {
 
 #[cfg(test)]
 mod test {
-  use crate::{lexer::LexerStatus, utils::read_file};
+  use crate::lexer::LexerStatus;
 
   use super::Lexer;
 
   #[test]
   fn parse_file() {
-    let source = read_file("fixtures/tokens/tokens.lpp").unwrap();
-    let expected = read_file("fixtures/tokens/result.snapshot").unwrap();
+    let source = include_str!("../fixtures/tokens/tokens.lpp");
+    let expected = include_str!("../fixtures/tokens/result.snapshot");
     let mut expected_lines = expected.split("\n");
-    let source_ref = source.as_str();
-    let mut lexer = Lexer::new(&source_ref);
+
+    let mut lexer = Lexer::new(&source);
     let status = lexer.status();
     assert_eq!(status, LexerStatus::Open);
 

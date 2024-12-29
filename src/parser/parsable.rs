@@ -1,6 +1,6 @@
 use crate::{
   ast::{
-    Block, Bool, Expression, ExpressionStatement, Ident, Int, LetStatement, Prefix, Program,
+    Block, Bool, Expression, ExpressionStatement, Ident, If, Int, LetStatement, Prefix, Program,
     ReturnStatement, Statement, StringLiteral,
   },
   branch::Branch,
@@ -25,11 +25,8 @@ trait Parsable<Output = Self>: Sized {
 impl Parsable for Program {
   fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
     let mut statements = Vec::new();
-    loop {
-      match Statement::parse(branch) {
-        Some(st) => statements.push(st),
-        None => break,
-      }
+    while let Some(st) = Statement::parse(branch) {
+      statements.push(st)
     }
 
     Some(Program::new(statements))
@@ -175,6 +172,33 @@ impl Parsable for StringLiteral {
       return Some(StringLiteral::new(token, value));
     }
     None
+  }
+}
+
+impl Parsable for If {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+    let if_token = branch.take_token_kind(TokenKind::If)?;
+    let _lparent = branch.take_token_kind(TokenKind::LParen)?;
+    let condition = Expression::parse(branch)?;
+    let _rparent = branch.take_token_kind(TokenKind::RParen)?;
+
+    let consequence = Block::parse(branch)?;
+
+    let alternative = Else::parse(branch);
+
+    Some(If::new(
+      if_token,
+      condition.into(),
+      consequence.into(),
+      alternative.map(Box::new),
+    ))
+  }
+}
+struct Else;
+impl Parsable<Block> for Else {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Block> {
+    let _else_token = branch.take_token_kind(TokenKind::Else)?;
+    Block::parse(branch)
   }
 }
 

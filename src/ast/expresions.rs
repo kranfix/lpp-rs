@@ -131,15 +131,15 @@ impl NodeDisplay for Bool {
 pub struct If {
   token: Token,
   condition: Box<Expression>,
-  consequence: Box<Expression>,
-  alternative: Option<Box<Expression>>,
+  consequence: Box<Block>,
+  alternative: Option<Box<Block>>,
 }
 impl If {
   pub fn new(
     token: Token,
     condition: Box<Expression>,
-    consequence: Box<Expression>,
-    alternative: Option<Box<Expression>>,
+    consequence: Box<Block>,
+    alternative: Option<Box<Block>>,
   ) -> If {
     If {
       token,
