@@ -1,43 +1,38 @@
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::{Cell, LazyCell, Ref, RefCell, RefMut};
 
-#[derive(Debug)]
-pub struct DefaultCell<T>(RefCell<Option<T>>);
-
-impl<T> Default for DefaultCell<T> {
-  fn default() -> Self {
-    DefaultCell(RefCell::new(None))
-  }
-}
-impl<T> DefaultCell<T> {
-  pub fn new() -> Self {
-    DefaultCell::default()
-  }
+#[derive(Debug, Default)]
+pub struct DefaultCell<T> {
+  // TODO(kranfix): remove when all the API of LazyCell is stable
+  initialized: Cell<bool>,
+  lazy: LazyCell<RefCell<T>>,
 }
 
 impl<T: Default> DefaultCell<T> {
+  pub fn new() -> Self {
+    DefaultCell::default()
+  }
+
+  pub fn is_initialized(&self) -> bool {
+    self.initialized.get()
+  }
+  pub fn lazy_borrow(&self) -> Option<Ref<'_, T>> {
+    match self.initialized.get() {
+      true => Some(Ref::map(self.lazy.borrow(), |v| v)),
+      false => None,
+    }
+  }
+
   pub fn borrow(&self) -> Ref<'_, T> {
-    self.init();
-    Ref::map(self.0.borrow(), |v| v.as_ref().unwrap())
+    Ref::map(self.lazy.borrow(), |v| v)
   }
   pub fn borrow_mut(&self) -> RefMut<'_, T> {
-    self.init();
-    RefMut::map(self.0.borrow_mut(), |v| v.as_mut().unwrap())
+    RefMut::map(self.lazy.borrow_mut(), |v| v)
   }
   pub fn update<F, R>(&self, f: F) -> R
   where
     F: FnOnce(&mut T) -> R,
   {
     f(&mut self.borrow_mut())
-  }
-  pub fn is_initialized(&self) -> bool {
-    self.0.borrow().is_some()
-  }
-
-  fn init(&self) {
-    let mut inner = self.0.borrow_mut();
-    if inner.is_none() {
-      *inner = Some(T::default());
-    }
   }
 }
 

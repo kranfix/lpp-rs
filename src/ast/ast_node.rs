@@ -1,5 +1,3 @@
-use std::sync::{atomic::AtomicBool, Arc};
-
 use enum_dispatch::enum_dispatch;
 
 use super::Token;

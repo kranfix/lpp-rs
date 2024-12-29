@@ -210,10 +210,7 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
   }
 
   pub fn take_next_value(&self) -> Option<TokenValue> {
-    if !self.root().values.is_initialized() {
-      return None;
-    }
-    let values = self.root().values.borrow();
+    let values = self.root().values.lazy_borrow()?;
     values.get(self.value_idx.get()).duped()
   }
 

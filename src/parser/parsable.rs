@@ -194,11 +194,12 @@ impl Parsable for If {
   }
 }
 
-static PREFIX_TOKENS: [TokenKind; 2] = [TokenKind::Neg, TokenKind::Minus];
+static _PREFIX_TOKENS: [TokenKind; 2] = [TokenKind::Neg, TokenKind::Minus];
+
 /// (! | -)exp
 impl Parsable for Prefix {
   fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
-    let prefix_token = branch.take_token_kind_when(|kind| PREFIX_TOKENS.contains(&kind))?;
+    let prefix_token = branch.take_token_kind_when(|kind| _PREFIX_TOKENS.contains(&kind))?;
     let expression = Expression::parse(&branch)?;
     Some(Prefix::new(prefix_token, expression))
   }
