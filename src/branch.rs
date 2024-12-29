@@ -18,7 +18,7 @@ pub struct Branch<'r, 'p, R: Branchable> {
   parent: Option<&'p Branch<'r, 'p, R>>,
   data: R::BranchData,
   value_idx: Cell<usize>,
-  committed: bool,
+  //committed: bool,
 }
 impl<'r, 'p, R: 'r + Branchable> Deref for Branch<'r, 'p, R> {
   type Target = R::BranchData;
@@ -30,6 +30,7 @@ impl<'r, 'p, R: 'r + Branchable> Deref for Branch<'r, 'p, R> {
 
 pub(crate) struct CommitableBranch<'r, 'p, R: Branchable> {
   branch: Branch<'r, 'p, R>,
+  committed: bool,
 }
 impl<'r, 'p, R: Branchable> Deref for CommitableBranch<'r, 'p, R> {
   type Target = Branch<'r, 'p, R>;
@@ -41,7 +42,7 @@ impl<'r, 'p, R: Branchable> Deref for CommitableBranch<'r, 'p, R> {
 impl<'r, 'p, R: Branchable> CommitableBranch<'r, 'p, R> {
   pub fn commit(mut self) -> Result<(), R::CommitError> {
     Branchable::commit_branch(&mut self.branch)?;
-    self.branch.committed = true;
+    self.committed = true;
     Ok(())
   }
 }
@@ -52,7 +53,7 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
       root,
       parent: None,
       data,
-      committed: false,
+      //committed: false,
       value_idx: Cell::new(root.value_idx()),
     }
   }
@@ -68,9 +69,9 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
         root: &self.root,
         parent: Some(self),
         data: self.data.dupe(),
-        committed: false,
         value_idx: Cell::new(self.root.value_idx()),
       },
+      committed: false,
     }
   }
 
@@ -87,10 +88,10 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
   }
 }
 
-impl<'r, 'p, R: 'r + Branchable> Drop for Branch<'r, 'p, R> {
+impl<'r, 'p, R: 'r + Branchable> Drop for CommitableBranch<'r, 'p, R> {
   fn drop(&mut self) {
     if !self.committed {
-      R::on_drop_branch(self)
+      R::on_drop_branch(&mut self.branch)
     }
   }
 }

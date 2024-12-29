@@ -143,7 +143,7 @@ pub enum ParseError {
   Msg(String),
   InvalidValueFormat(String),
 }
-impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
+impl<'r, 'p, S: Source> Branch<'r, 'p, Parser<S>> {
   pub fn take_next_token(&self) -> Option<Token> {
     let tokens = self.root().tokens.borrow_mut();
     let token_pos = self.token_pos.get();
@@ -163,14 +163,14 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
     &self,
     kind: Kind,
   ) -> Option<(Token, Kind::Data)> {
-    self.take_token_kind_on(|token| {
+    self.take_token_kind_on(|branch, token| {
       if token.kind() != kind.token_kind() {
         return None;
       }
 
-      let value_idx = self.value_idx.get();
+      let value_idx = branch.value_idx.get();
 
-      let token_value = self.root().values.borrow()[value_idx].dupe();
+      let token_value = branch.root().values.borrow()[value_idx].dupe();
       let value = Kind::from_token_value(token_value)?;
 
       self.value_idx.set(value_idx + 1);
@@ -180,18 +180,21 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
   }
 
   pub fn take_token_kind(&self, kind: TokenKind) -> Option<Token> {
-    self.take_token_kind_on(|token| match kind == token.kind() {
+    self.take_token_kind_on(|_, token| match kind == token.kind() {
       true => Some(token),
       false => None,
     })
   }
   pub fn take_token_kind_when(&self, eval: impl FnOnce(TokenKind) -> bool) -> Option<Token> {
-    self.take_token_kind_on(|token| match eval(token.kind()) {
+    self.take_token_kind_on(|_, token| match eval(token.kind()) {
       true => Some(token),
       false => None,
     })
   }
-  fn take_token_kind_on<T>(&self, eval: impl FnOnce(Token) -> Option<T>) -> Option<T> {
+  fn take_token_kind_on<T>(
+    &self,
+    eval: impl FnOnce(&'_ Branch<'_, '_, Parser<S>>, Token) -> Option<T>,
+  ) -> Option<T> {
     let child = self.child();
     let token = match child.take_next_token() {
       Some(token) => token,
@@ -202,7 +205,7 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
         return None;
       }
     };
-    let output = eval(token)?;
+    let output = eval(&child, token)?;
     match child.commit() {
       Ok(_) => Some(output),
       Err(_) => None,
