@@ -1,4 +1,4 @@
-use std::{cell::Cell, rc::Rc};
+use std::rc::Rc;
 
 use dupe::Dupe;
 use enum_dispatch::enum_dispatch;
@@ -42,26 +42,17 @@ impl NodeDisplay for Ident {
 
 pub struct Int {
   pub(crate) token: Token,
-  pub(crate) value: Cell<Option<u32>>,
+  pub(crate) value: u32,
 }
 impl Int {
-  pub fn new(token: Token) -> Int {
-    Int {
-      token,
-      value: Cell::default(),
-    }
+  pub fn new(token: Token, value: u32) -> Int {
+    Int { token, value }
   }
 }
 tokened!(Int);
 impl NodeDisplay for Int {
-  fn source_fmt<'s>(&self, source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let val = match self.value.get() {
-      Some(val) => val,
-      None => {
-        let text = &source[self.token.range()];
-        text.parse().unwrap()
-      }
-    };
+  fn source_fmt<'s>(&self, _source: &'s str, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let val = self.value;
     write!(f, "{val}")
   }
 }

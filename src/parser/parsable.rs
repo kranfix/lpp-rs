@@ -5,7 +5,7 @@ use crate::{
   },
   branch::Branch,
   lexer::Source,
-  token::{StringTokenKind, TokenKind},
+  token::{IntTokenKind, StringTokenKind, TokenKind},
 };
 
 use super::parser::{ParseError, Parser};
@@ -133,7 +133,7 @@ impl Parsable for Expression {
     //   [x] Ident(Ident),
     //   [x] Int(Int),
     //   [x] Bool(Bool),
-    //   [ ] StringLiteral(StringLiteral),
+    //   [x] StringLiteral(StringLiteral),
     //   [ ] If(If),
     //   [ ] Func(Func),
     //   [ ] Call(Call),
@@ -152,8 +152,8 @@ impl Parsable for Ident {
 
 impl Parsable for Int {
   fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
-    let int_token = branch.take_token_kind(TokenKind::Int)?;
-    Some(Int::new(int_token))
+    let (token, value) = branch.take_token_kind_and_value(IntTokenKind)?;
+    Some(Int::new(token, value))
   }
 }
 

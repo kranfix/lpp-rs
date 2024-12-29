@@ -191,23 +191,32 @@ mod test {
   fn parse_file() {
     let source = read_file("fixtures/tokens/tokens.lpp").unwrap();
     let expected = read_file("fixtures/tokens/result.snapshot").unwrap();
+    let mut expected_lines = expected.split("\n");
     let source_ref = source.as_str();
     let mut lexer = Lexer::new(&source_ref);
     let status = lexer.status();
     assert_eq!(status, LexerStatus::Open);
 
-    let mut result = String::new();
     let mut idx = 0;
     while let Some((token, value)) = lexer.next() {
-      let line = format!("[{idx}] {token:?} -- {value:?}\n");
-      result.push_str(&line);
+      let expected_line = expected_lines
+        .next()
+        .expect("There should exist an expected line");
+      let line = format!("[{idx}] {token:?} -- {value:?}");
+
+      assert_eq!(line, expected_line);
+
       idx += 1;
       let status = lexer.status();
       assert_eq!(status, LexerStatus::Open);
     }
-    assert_eq!(result, expected);
 
     let status = lexer.status();
     assert_eq!(status, LexerStatus::Ended);
+
+    assert!(
+      expected_lines.filter(|l| !l.is_empty()).next().is_none(),
+      "There shouldn't be more expected lines"
+    )
   }
 }

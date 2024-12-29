@@ -2,9 +2,9 @@
 [1] Token { kind: Comma, start: 2, end: 3 } -- None
 [2] Token { kind: Division, start: 4, end: 5 } -- None
 [3] Token { kind: Else, start: 6, end: 10 } -- None
-[4] Token { kind: False, start: 13, end: 18 } -- Some(Bool(false))
+[4] Token { kind: False, start: 13, end: 18 } -- None
 [5] Token { kind: Eq, start: 21, end: 23 } -- None
-[6] Token { kind: True, start: 24, end: 28 } -- Some(Bool(true))
+[6] Token { kind: True, start: 24, end: 28 } -- None
 [7] Token { kind: Func, start: 29, end: 31 } -- None
 [8] Token { kind: Ident, start: 32, end: 38 } -- None
 [9] Token { kind: If, start: 40, end: 42 } -- None
