@@ -1,4 +1,5 @@
 use std::{
+  marker::PhantomData,
   ops::{Deref, Range},
   rc::Rc,
 };
@@ -84,7 +85,7 @@ static LITERALS: [(&str, TokenKind); 7] = [
 pub enum TokenValue {
   Int(u32),
   String(Rc<str>),
-  Bool(bool),
+  //Bool(bool),
 }
 
 impl From<u32> for TokenValue {
@@ -92,13 +93,52 @@ impl From<u32> for TokenValue {
     TokenValue::Int(value)
   }
 }
-impl From<bool> for TokenValue {
-  fn from(value: bool) -> Self {
-    TokenValue::Bool(value)
-  }
-}
+//impl From<bool> for TokenValue {
+//  fn from(value: bool) -> Self {
+//    TokenValue::Bool(value)
+//  }
+//}
 impl From<String> for TokenValue {
   fn from(value: String) -> Self {
     TokenValue::String(value.into())
+  }
+}
+
+pub trait TokenValueKind {
+  type Data: Dupe;
+
+  fn from_token_value(value: TokenValue) -> Option<Self::Data>;
+
+  fn token_kind(&self) -> TokenKind;
+}
+pub struct IntTokenKind;
+impl TokenValueKind for IntTokenKind {
+  type Data = u32;
+
+  fn from_token_value(value: TokenValue) -> Option<Self::Data> {
+    match value {
+      TokenValue::Int(int) => Some(int),
+      _ => None,
+    }
+  }
+
+  fn token_kind(&self) -> TokenKind {
+    TokenKind::Int
+  }
+}
+
+pub struct StringTokenKind;
+impl TokenValueKind for StringTokenKind {
+  type Data = Rc<str>;
+
+  fn from_token_value(value: TokenValue) -> Option<Self::Data> {
+    match value {
+      TokenValue::String(string) => Some(string),
+      _ => None,
+    }
+  }
+
+  fn token_kind(&self) -> TokenKind {
+    TokenKind::String
   }
 }

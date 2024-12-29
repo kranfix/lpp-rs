@@ -1,5 +1,6 @@
-use std::cell::Cell;
+use std::{cell::Cell, rc::Rc};
 
+use dupe::Dupe;
 use enum_dispatch::enum_dispatch;
 
 use crate::tokened;
@@ -245,11 +246,14 @@ impl NodeDisplay for Call {
 
 pub struct StringLiteral {
   token: Token,
-  value: String,
+  value: Rc<str>,
 }
 impl StringLiteral {
-  pub fn new(token: Token, value: String) -> StringLiteral {
+  pub fn new(token: Token, value: Rc<str>) -> StringLiteral {
     StringLiteral { token, value }
+  }
+  pub fn value(&self) -> Rc<str> {
+    self.value.dupe()
   }
 }
 tokened!(StringLiteral);

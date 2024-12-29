@@ -3,7 +3,7 @@ use dupe::{Dupe, OptionDupedExt};
 use crate::ast::*;
 use crate::branch::{Branch, Branchable};
 use crate::lexer::{Lexer, Source};
-use crate::token::{Token, TokenKind, TokenValue};
+use crate::token::{Token, TokenKind, TokenValue, TokenValueKind};
 use crate::types::DefaultCell;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -50,7 +50,6 @@ impl<S> Parser<S> {
   pub(crate) fn add_token(&self, token: Token, token_value: Option<TokenValue>) {
     let mut tokens = self.tokens.borrow_mut();
     if let Some(token_value) = token_value {
-      let idx = tokens.len();
       self.values.borrow_mut().push(token_value)
     }
     tokens.push(token);
@@ -95,9 +94,17 @@ impl<S: Source> Branchable for Parser<S> {
     branch: &mut crate::branch::Branch<'r, 'p, Self>,
   ) -> Result<(), Self::CommitError> {
     let new_pos = branch.token_pos.get();
+    let new_value_idx = branch.value_idx.get();
     match branch.parent() {
-      Some(parent) => parent.token_pos.set(new_pos),
-      None => branch.root().token_pos.set(new_pos),
+      Some(parent) => {
+        parent.token_pos.set(new_pos);
+        parent.value_idx.set(new_value_idx);
+      }
+      None => {
+        let root = branch.root();
+        root.token_pos.set(new_pos);
+        root.value_idx.set(new_value_idx);
+      }
     }
     Ok(())
   }
@@ -108,6 +115,10 @@ impl<S: Source> Branchable for Parser<S> {
         parent.mark_accurate_alternative();
       }
     }
+  }
+
+  fn value_idx(&self) -> usize {
+    self.value_idx.get()
   }
 }
 
@@ -146,6 +157,36 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
     let next_token = self.root().take_next_token()?;
     self.token_pos.set(token_pos + 1);
     Some(next_token)
+  }
+
+  pub fn take_token_kind_and_value<Kind: TokenValueKind>(
+    &self,
+    kind: Kind,
+  ) -> Option<(Token, Kind::Data)> {
+    let child = self.child();
+    let token = match child.take_next_token() {
+      Some(token) => token,
+      None => {
+        child
+          .root()
+          .add_error(ParseError::Msg("No more tokens".into()));
+        return None;
+      }
+    };
+    if token.kind() != kind.token_kind() {
+      return None;
+    }
+    let value_idx = self.value_idx.get();
+
+    let token_value = self.root().values.borrow()[value_idx].dupe();
+    let value = Kind::from_token_value(token_value)?;
+
+    self.value_idx.set(value_idx + 1);
+
+    match child.commit() {
+      Ok(_) => Some((token, value)),
+      Err(_) => None,
+    }
   }
 
   pub fn take_token_kind(&self, kind: TokenKind) -> Option<Token> {

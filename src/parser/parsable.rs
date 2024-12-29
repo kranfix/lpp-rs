@@ -1,16 +1,14 @@
 use crate::{
   ast::{
     Block, Bool, Expression, ExpressionStatement, Ident, Int, LetStatement, Prefix, Program,
-    ReturnStatement, Statement,
+    ReturnStatement, Statement, StringLiteral,
   },
   branch::Branch,
   lexer::Source,
-  token::TokenKind,
+  token::{StringTokenKind, TokenKind},
 };
 
 use super::parser::{ParseError, Parser};
-
-type ParserBranch<'r, 'p, S> = Branch<'r, 'p, Parser<S>>;
 
 trait Parsable<Output = Self>: Sized {
   fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Output>;
@@ -125,6 +123,10 @@ impl Parsable for Expression {
       return Some(Expression::Bool(boolean));
     }
 
+    if let Some(string_literal) = StringLiteral::parse(branch) {
+      return Some(Expression::StringLiteral(string_literal));
+    }
+
     None
 
     // pub enum Expression {
@@ -167,6 +169,15 @@ impl Parsable for Bool {
   }
 }
 
+impl Parsable for StringLiteral {
+  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
+    if let Some((token, value)) = branch.take_token_kind_and_value(StringTokenKind) {
+      return Some(StringLiteral::new(token, value));
+    }
+    None
+  }
+}
+
 /// !a
 /// -a
 impl Parsable for Prefix {
@@ -188,7 +199,7 @@ impl Parsable for Prefix {
 mod test {
   use super::Parsable;
   use crate::{
-    ast::{AstNode, Bool, Ident, Int, LetStatement, NodeFormatter, Prefix},
+    ast::{AstNode, Bool, Ident, Int, LetStatement, NodeFormatter, Prefix, StringLiteral},
     branch::Branchable,
     lexer::Lexer,
     parser::parser::Parser,
@@ -234,6 +245,16 @@ mod test {
     let parser = Parser::new(lexer);
     let boolean = Bool::parse(&parser.branch()).unwrap();
     assert_eq!(boolean.value(), true);
+  }
+
+  #[test]
+  fn string_parse_test() {
+    let source = r#" "hello world"  "#;
+    let lexer = Lexer::new(&source);
+
+    let parser = Parser::new(lexer);
+    let string_literal = StringLiteral::parse(&parser.branch()).unwrap();
+    assert_eq!(&*string_literal.value(), "hello world");
   }
 
   #[test]

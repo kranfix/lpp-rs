@@ -1,5 +1,5 @@
 use dupe::Dupe;
-use std::ops::Deref;
+use std::{cell::Cell, ops::Deref};
 
 pub trait Branchable: Sized {
   type BranchData: Dupe;
@@ -8,6 +8,8 @@ pub trait Branchable: Sized {
   fn branch<'r>(&'r self) -> Branch<'r, 'r, Self>;
   fn commit_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>) -> Result<(), Self::CommitError>;
   fn on_drop_branch<'r, 'p>(branch: &mut Branch<'r, 'p, Self>);
+
+  fn value_idx(&self) -> usize;
 }
 
 #[derive(Debug)]
@@ -15,6 +17,7 @@ pub struct Branch<'r, 'p, R: Branchable> {
   root: &'r R,
   parent: Option<&'p Branch<'r, 'p, R>>,
   data: R::BranchData,
+  value_idx: Cell<usize>,
   committed: bool,
 }
 impl<'r, 'p, R: 'r + Branchable> Deref for Branch<'r, 'p, R> {
@@ -32,6 +35,7 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
       parent: None,
       data,
       committed: false,
+      value_idx: Cell::new(root.value_idx()),
     }
   }
   pub fn root(&self) -> &'r R {
@@ -46,6 +50,7 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
       parent: Some(self),
       data: self.data.dupe(),
       committed: false,
+      value_idx: Cell::new(self.root.value_idx()),
     }
   }
   pub fn commit(mut self) -> Result<(), R::CommitError> {

@@ -116,11 +116,6 @@ impl<S: Source> Iterator for Lexer<S> {
       }
     } else if let Some((len, lit)) = Literal::read_from(rem) {
       let kind = TokenKind::from_literal(lit);
-      match kind {
-        TokenKind::True => token_value = Some(true.into()),
-        TokenKind::False => token_value = Some(false.into()),
-        _ => {}
-      }
       self.update_pos(len, kind)
     } else if let Some((len, value)) = u32::read_from(rem) {
       token_value = Some(value.into());
