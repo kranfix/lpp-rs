@@ -90,7 +90,7 @@ impl Parsable for Block {
 
     let mut statements = Vec::new();
     loop {
-      if let Some(_) = branch.take_token_kind(TokenKind::LBrace) {
+      if let Some(_) = branch.take_token_kind(TokenKind::RBrace) {
         return Some(Block::new(token, statements));
       }
       match Statement::parse(branch) {
@@ -131,7 +131,7 @@ impl Parsable for Expression {
     //   [x] Int(Int),
     //   [x] Bool(Bool),
     //   [x] StringLiteral(StringLiteral),
-    //   [ ] If(If),
+    //   [x] If(If),
     //   [ ] Func(Func),
     //   [ ] Call(Call),
     //   [x] Prefix(Prefix),
@@ -223,7 +223,9 @@ impl Parsable for Prefix {
 mod test {
   use super::Parsable;
   use crate::{
-    ast::{AstNode, Bool, Ident, Int, LetStatement, NodeFormatter, Prefix, StringLiteral},
+    ast::{
+      AstNode, Bool, Expression, Ident, If, Int, LetStatement, NodeFormatter, Prefix, StringLiteral,
+    },
     branch::Branchable,
     lexer::Lexer,
     parser::parser::Parser,
@@ -279,6 +281,44 @@ mod test {
     let parser = Parser::new(lexer);
     let string_literal = StringLiteral::parse(&parser.branch()).unwrap();
     assert_eq!(&*string_literal.value(), "hello world");
+  }
+
+  #[test]
+  fn if_test() {
+    let source = r#"
+  if(true) {
+    let a = 5;
+    return a;
+  }
+"#;
+    let lexer = Lexer::new(&source);
+
+    let parser = Parser::new(lexer);
+    let st = If::parse(&parser.branch()).unwrap();
+    let (condition, _consequence, alternative) = st.parts();
+
+    assert!(matches!(condition, Expression::Bool(_)));
+    assert!(alternative.is_none());
+  }
+
+  #[test]
+  fn if_else_test() {
+    let source = r#"
+  if(false) {
+    let a = 5;
+    return a;
+  } else {
+    return 4;
+  }
+"#;
+    let lexer = Lexer::new(&source);
+
+    let parser = Parser::new(lexer);
+    let st = If::parse(&parser.branch()).unwrap();
+    let (condition, _consequence, alternative) = st.parts();
+
+    assert!(matches!(condition, Expression::Bool(_)));
+    assert!(alternative.is_some());
   }
 
   #[test]

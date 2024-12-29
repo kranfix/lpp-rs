@@ -148,6 +148,13 @@ impl If {
       alternative,
     }
   }
+  pub fn parts(&self) -> (&Expression, &Block, Option<&Block>) {
+    (
+      &self.condition,
+      &self.consequence,
+      self.alternative.as_deref(),
+    )
+  }
 }
 tokened!(If);
 impl NodeDisplay for If {
