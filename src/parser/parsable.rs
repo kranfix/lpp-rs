@@ -10,15 +10,11 @@ use crate::{
 
 use super::parser::{ParseError, Parser};
 
-trait Parsable<Output = Self>: Sized {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Output>;
-  fn parse<'p, 'b, S: Source>(parent_branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Output> {
-    let branch = parent_branch.child();
-    let val = Self::raw_parse(&branch)?;
-    match branch.commit() {
-      Ok(_) => Some(val),
-      Err(_err) => None,
-    }
+trait Parsable: Sized {
+  fn raw_parse<'r, 'b, S: Source>(branch: &'b Branch<'r, 'b, Parser<S>>) -> Option<Self>;
+
+  fn parse<'r, 'b, S: Source>(parent_branch: &'b Branch<'r, 'b, Parser<S>>) -> Option<Self> {
+    parent_branch.scoped(Self::raw_parse)
   }
 }
 
@@ -184,7 +180,10 @@ impl Parsable for If {
 
     let consequence = Block::parse(branch)?;
 
-    let alternative = Else::parse(branch);
+    let alternative = branch.scoped(|branch| {
+      let _else_token = branch.take_token_kind(TokenKind::Else)?;
+      Block::parse(branch)
+    });
 
     Some(If::new(
       if_token,
@@ -194,28 +193,14 @@ impl Parsable for If {
     ))
   }
 }
-struct Else;
-impl Parsable<Block> for Else {
-  fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Block> {
-    let _else_token = branch.take_token_kind(TokenKind::Else)?;
-    Block::parse(branch)
-  }
-}
 
-/// !a
-/// -a
+static PREFIX_TOKENS: [TokenKind; 2] = [TokenKind::Neg, TokenKind::Minus];
+/// (! | -)exp
 impl Parsable for Prefix {
   fn raw_parse<'p, 'b, S: Source>(branch: &'b Branch<'p, 'b, Parser<S>>) -> Option<Self> {
-    for token_kind in [TokenKind::Neg, TokenKind::Minus] {
-      let branch = branch.child();
-      if let Some(prefix_token) = branch.take_token_kind(token_kind) {
-        if let Some(expression) = Expression::parse(&branch) {
-          return Some(Prefix::new(prefix_token, expression));
-        }
-      }
-    }
-
-    None
+    let prefix_token = branch.take_token_kind_when(|kind| PREFIX_TOKENS.contains(&kind))?;
+    let expression = Expression::parse(&branch)?;
+    Some(Prefix::new(prefix_token, expression))
   }
 }
 

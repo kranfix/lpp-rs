@@ -163,33 +163,35 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
     &self,
     kind: Kind,
   ) -> Option<(Token, Kind::Data)> {
-    let child = self.child();
-    let token = match child.take_next_token() {
-      Some(token) => token,
-      None => {
-        child
-          .root()
-          .add_error(ParseError::Msg("No more tokens".into()));
+    self.take_token_kind_on(|token| {
+      if token.kind() != kind.token_kind() {
         return None;
       }
-    };
-    if token.kind() != kind.token_kind() {
-      return None;
-    }
-    let value_idx = self.value_idx.get();
 
-    let token_value = self.root().values.borrow()[value_idx].dupe();
-    let value = Kind::from_token_value(token_value)?;
+      let value_idx = self.value_idx.get();
 
-    self.value_idx.set(value_idx + 1);
+      let token_value = self.root().values.borrow()[value_idx].dupe();
+      let value = Kind::from_token_value(token_value)?;
 
-    match child.commit() {
-      Ok(_) => Some((token, value)),
-      Err(_) => None,
-    }
+      self.value_idx.set(value_idx + 1);
+
+      Some((token, value))
+    })
   }
 
   pub fn take_token_kind(&self, kind: TokenKind) -> Option<Token> {
+    self.take_token_kind_on(|token| match kind == token.kind() {
+      true => Some(token),
+      false => None,
+    })
+  }
+  pub fn take_token_kind_when(&self, eval: impl FnOnce(TokenKind) -> bool) -> Option<Token> {
+    self.take_token_kind_on(|token| match eval(token.kind()) {
+      true => Some(token),
+      false => None,
+    })
+  }
+  fn take_token_kind_on<T>(&self, eval: impl FnOnce(Token) -> Option<T>) -> Option<T> {
     let child = self.child();
     let token = match child.take_next_token() {
       Some(token) => token,
@@ -200,11 +202,9 @@ impl<'p, 'b, S: Source> Branch<'p, 'b, Parser<S>> {
         return None;
       }
     };
-    if token.kind() != kind {
-      return None;
-    }
+    let output = eval(token)?;
     match child.commit() {
-      Ok(_) => Some(token),
+      Ok(_) => Some(output),
       Err(_) => None,
     }
   }

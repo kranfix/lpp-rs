@@ -44,7 +44,7 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
   pub fn parent(&self) -> Option<&'p Self> {
     self.parent
   }
-  pub fn child<'b>(&'b self) -> Branch<'r, 'b, R> {
+  pub(crate) fn child<'b>(&'b self) -> Branch<'r, 'b, R> {
     Branch {
       root: &self.root,
       parent: Some(self),
@@ -58,8 +58,17 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
     self.committed = true;
     Ok(())
   }
-  pub fn abort(self) {
-    drop(self)
+
+  pub fn scoped<Out, F>(self: &'p Branch<'r, 'p, R>, f: F) -> Option<Out>
+  where
+    F: for<'b> FnOnce(&'b Branch<'r, 'b, R>) -> Option<Out>,
+  {
+    let branch = self.child();
+    let val = f(&branch)?;
+    match branch.commit() {
+      Ok(_) => Some(val),
+      Err(_err) => None,
+    }
   }
 }
 
