@@ -28,6 +28,24 @@ impl<'r, 'p, R: 'r + Branchable> Deref for Branch<'r, 'p, R> {
   }
 }
 
+pub(crate) struct CommitableBranch<'r, 'p, R: Branchable> {
+  branch: Branch<'r, 'p, R>,
+}
+impl<'r, 'p, R: Branchable> Deref for CommitableBranch<'r, 'p, R> {
+  type Target = Branch<'r, 'p, R>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.branch
+  }
+}
+impl<'r, 'p, R: Branchable> CommitableBranch<'r, 'p, R> {
+  pub fn commit(mut self) -> Result<(), R::CommitError> {
+    Branchable::commit_branch(&mut self.branch)?;
+    self.branch.committed = true;
+    Ok(())
+  }
+}
+
 impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
   pub fn new(root: &'r R, data: R::BranchData) -> Self {
     Branch {
@@ -44,19 +62,16 @@ impl<'r, 'p, R: Branchable> Branch<'r, 'p, R> {
   pub fn parent(&self) -> Option<&'p Self> {
     self.parent
   }
-  pub(crate) fn child<'b>(&'b self) -> Branch<'r, 'b, R> {
-    Branch {
-      root: &self.root,
-      parent: Some(self),
-      data: self.data.dupe(),
-      committed: false,
-      value_idx: Cell::new(self.root.value_idx()),
+  pub(crate) fn child<'b>(&'b self) -> CommitableBranch<'r, 'b, R> {
+    CommitableBranch {
+      branch: Branch {
+        root: &self.root,
+        parent: Some(self),
+        data: self.data.dupe(),
+        committed: false,
+        value_idx: Cell::new(self.root.value_idx()),
+      },
     }
-  }
-  pub fn commit(mut self) -> Result<(), R::CommitError> {
-    Branchable::commit_branch(&mut self)?;
-    self.committed = true;
-    Ok(())
   }
 
   pub fn scoped<Out, F>(self: &'p Branch<'r, 'p, R>, f: F) -> Option<Out>
