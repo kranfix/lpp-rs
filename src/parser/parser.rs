@@ -114,10 +114,6 @@ impl<S: Source> Branchable for Parser<S> {
       }
     }
   }
-
-  fn value_idx(&self) -> usize {
-    self.value_idx.get()
-  }
 }
 
 #[derive(Debug, Clone, Dupe)]

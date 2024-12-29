@@ -10,15 +10,19 @@ use crate::{
 
 use super::parser::{ParseError, Parser};
 
-trait Parsable: Sized {
+trait RawParsable: Sized {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self>;
-
+}
+trait Parsable: RawParsable {
+  fn parse<S: Source>(parent_branch: &Branch<'_, Parser<S>>) -> Option<Self>;
+}
+impl<P: RawParsable> Parsable for P {
   fn parse<S: Source>(parent_branch: &Branch<'_, Parser<S>>) -> Option<Self> {
-    parent_branch.scoped(Self::raw_parse)
+    parent_branch.scoped(P::raw_parse)
   }
 }
 
-impl Parsable for Program {
+impl RawParsable for Program {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     let mut statements = Vec::new();
     while let Some(st) = Statement::parse(branch) {
@@ -29,7 +33,7 @@ impl Parsable for Program {
   }
 }
 
-impl Parsable for Statement {
+impl RawParsable for Statement {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     if let Some(st) = LetStatement::parse(branch) {
       return Some(Statement::Let(st));
@@ -47,7 +51,7 @@ impl Parsable for Statement {
   }
 }
 
-impl Parsable for LetStatement {
+impl RawParsable for LetStatement {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     let let_token = branch.take_token_kind(TokenKind::Let)?;
     let name = Ident::parse(branch)?;
@@ -60,7 +64,7 @@ impl Parsable for LetStatement {
   }
 }
 
-impl Parsable for ReturnStatement {
+impl RawParsable for ReturnStatement {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     let return_token = branch.take_token_kind(TokenKind::Return)?;
     let return_exp = Expression::parse(branch)?;
@@ -71,7 +75,7 @@ impl Parsable for ReturnStatement {
   }
 }
 
-impl Parsable for ExpressionStatement {
+impl RawParsable for ExpressionStatement {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     let expression = Expression::parse(branch)?;
     branch.take_token_kind(TokenKind::Semicolon)?;
@@ -80,7 +84,7 @@ impl Parsable for ExpressionStatement {
   }
 }
 
-impl Parsable for Block {
+impl RawParsable for Block {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     let token = branch.take_token_kind(TokenKind::LBrace)?;
 
@@ -102,7 +106,7 @@ impl Parsable for Block {
   }
 }
 
-impl Parsable for Expression {
+impl RawParsable for Expression {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     if let Some(ident) = Ident::parse(branch) {
       return Some(Expression::Ident(ident));
@@ -136,21 +140,21 @@ impl Parsable for Expression {
   }
 }
 
-impl Parsable for Ident {
+impl RawParsable for Ident {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     let ident_token = branch.take_token_kind(TokenKind::Ident)?;
     Some(Ident::new(ident_token))
   }
 }
 
-impl Parsable for Int {
+impl RawParsable for Int {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     let (token, value) = branch.take_token_kind_and_value(IntTokenKind)?;
     Some(Int::new(token, value))
   }
 }
 
-impl Parsable for Bool {
+impl RawParsable for Bool {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     if let Some(token) = branch.take_token_kind(TokenKind::True) {
       return Some(Bool::new(token, true));
@@ -162,7 +166,7 @@ impl Parsable for Bool {
   }
 }
 
-impl Parsable for StringLiteral {
+impl RawParsable for StringLiteral {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     if let Some((token, value)) = branch.take_token_kind_and_value(StringTokenKind) {
       return Some(StringLiteral::new(token, value));
@@ -171,7 +175,7 @@ impl Parsable for StringLiteral {
   }
 }
 
-impl Parsable for If {
+impl RawParsable for If {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     let if_token = branch.take_token_kind(TokenKind::If)?;
     let _lparent = branch.take_token_kind(TokenKind::LParen)?;
@@ -197,7 +201,7 @@ impl Parsable for If {
 static _PREFIX_TOKENS: [TokenKind; 2] = [TokenKind::Neg, TokenKind::Minus];
 
 /// (! | -)exp
-impl Parsable for Prefix {
+impl RawParsable for Prefix {
   fn raw_parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     let prefix_token = branch.take_token_kind_when(|kind| _PREFIX_TOKENS.contains(&kind))?;
     let expression = Expression::parse(&branch)?;
@@ -207,14 +211,13 @@ impl Parsable for Prefix {
 
 #[cfg(test)]
 mod test {
-  use super::Parsable;
   use crate::{
     ast::{
       AstNode, Bool, Expression, Ident, If, Int, LetStatement, NodeFormatter, Prefix, StringLiteral,
     },
     branch::Branchable,
     lexer::Lexer,
-    parser::parser::Parser,
+    parser::{parsable::Parsable, parser::Parser},
   };
 
   #[test]

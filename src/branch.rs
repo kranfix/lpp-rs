@@ -1,5 +1,5 @@
 use dupe::Dupe;
-use std::{cell::Cell, ops::Deref};
+use std::ops::Deref;
 
 pub trait Branchable: Sized {
   type BranchData: Dupe;
@@ -8,8 +8,6 @@ pub trait Branchable: Sized {
   fn branch(&self) -> Branch<'_, Self>;
   fn commit_branch(branch: &mut Branch<'_, Self>) -> Result<(), Self::CommitError>;
   fn on_drop_branch(branch: &mut Branch<'_, Self>);
-
-  fn value_idx(&self) -> usize;
 }
 
 #[derive(Debug)]
@@ -59,7 +57,7 @@ impl<'p, R: Branchable> Branch<'p, R> {
   pub fn parent(&self) -> Option<&'p Self> {
     self.parent
   }
-  pub(crate) fn child<'b: 'p>(&'b self) -> CommitableBranch<'b, R> {
+  pub(crate) fn child(&self) -> CommitableBranch<'_, R> {
     CommitableBranch {
       branch: Branch {
         root: &self.root,
@@ -72,7 +70,7 @@ impl<'p, R: Branchable> Branch<'p, R> {
 
   pub fn scoped<Out, F>(self: &'p Branch<'p, R>, f: F) -> Option<Out>
   where
-    F: for<'b> FnOnce(&'b Branch<'b, R>) -> Option<Out>,
+    F: FnOnce(&Branch<'_, R>) -> Option<Out>,
   {
     let branch = self.child();
     let val = f(&branch)?;
