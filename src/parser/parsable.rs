@@ -3,7 +3,7 @@ use crate::{
     Block, Bool, Expression, ExpressionStatement, Ident, If, Int, LetStatement, Prefix, Program,
     ReturnStatement, Statement, StringLiteral,
   },
-  branch::{Branch, BranchInspect, CommitableBranch},
+  branch::{Branch, BranchInspect},
   lexer::Source,
   token::{IntTokenKind, StringTokenKind, TokenKind},
 };
@@ -14,7 +14,7 @@ trait Parsable: Sized {
   fn parse<S: Source>(branch: &Branch<'_, Parser<S>>) -> Option<Self>;
 }
 impl<P: Parsable, S: Source> BranchInspect<Parser<S>> for P {
-  fn inspect(branch: &CommitableBranch<'_, Parser<S>>) -> Option<Self> {
+  fn inspect(branch: &Branch<'_, Parser<S>>) -> Option<Self> {
     P::parse(branch)
   }
 }

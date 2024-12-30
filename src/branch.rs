@@ -1,6 +1,5 @@
-use std::ops::Deref;
-
 use dupe::Dupe;
+use std::ops::Deref;
 
 pub trait BranchRoot: Sized {
   type BranchData: UpdateFrom;
@@ -9,13 +8,13 @@ pub trait BranchRoot: Sized {
   fn data(&self) -> &Self::BranchData;
 
   fn branch(&self) -> crate::branch::Branch<'_, Self> {
-    let data = self.data().dupe();
+    let data = self.data();
     crate::branch::Branch::new(self, data)
   }
 }
 
 pub trait BranchInspect<Root: BranchRoot>: Sized {
-  fn inspect(branch: &CommitableBranch<'_, Root>) -> Option<Self>;
+  fn inspect(branch: &Branch<'_, Root>) -> Option<Self>;
 }
 
 pub trait UpdateFrom: Dupe {
@@ -25,7 +24,7 @@ pub trait UpdateFrom: Dupe {
 #[derive(Debug)]
 pub struct Branch<'p, R: BranchRoot> {
   root: &'p R,
-  parent: Option<&'p Branch<'p, R>>,
+  parent_data: &'p R::BranchData,
   data: R::BranchData,
 }
 impl<'p, R: 'p + BranchRoot> Deref for Branch<'p, R> {
@@ -36,7 +35,7 @@ impl<'p, R: 'p + BranchRoot> Deref for Branch<'p, R> {
   }
 }
 
-pub struct CommitableBranch<'p, R: BranchRoot> {
+pub(crate) struct CommitableBranch<'p, R: BranchRoot> {
   branch: Branch<'p, R>,
   committed: bool,
 }
@@ -49,17 +48,8 @@ impl<'p, R: BranchRoot> Deref for CommitableBranch<'p, R> {
 }
 impl<'p, R: BranchRoot> CommitableBranch<'p, R> {
   pub fn commit(mut self) -> Result<(), R::CommitError> {
-    let root: &R = self.root;
-    let data = &self.branch.data;
-
-    match self.branch.parent {
-      Some(parent) => {
-        parent.data.update_from(data);
-      }
-      None => {
-        root.data().update_from(data);
-      }
-    }
+    let parent_data: &R::BranchData = self.parent_data;
+    parent_data.update_from(&self.data);
 
     self.committed = true;
     Ok(())
@@ -67,10 +57,11 @@ impl<'p, R: BranchRoot> CommitableBranch<'p, R> {
 }
 
 impl<'p, R: BranchRoot> Branch<'p, R> {
-  pub fn new(root: &'p R, data: R::BranchData) -> Self {
+  pub fn new(root: &'p R, parent_data: &'p R::BranchData) -> Self {
+    let data = parent_data.dupe();
     Branch {
       root,
-      parent: None,
+      parent_data,
       data,
     }
   }
@@ -79,18 +70,14 @@ impl<'p, R: BranchRoot> Branch<'p, R> {
   }
   pub(crate) fn child(&self) -> CommitableBranch<'_, R> {
     CommitableBranch {
-      branch: Branch {
-        root: &self.root,
-        parent: Some(self),
-        data: self.data.dupe(),
-      },
+      branch: Branch::new(self.root, self.parent_data),
       committed: false,
     }
   }
 
   pub fn scoped<Out, F>(self: &'p Branch<'p, R>, f: F) -> Option<Out>
   where
-    F: FnOnce(&CommitableBranch<'_, R>) -> Option<Out>,
+    F: FnOnce(&Branch<'_, R>) -> Option<Out>,
   {
     let branch = self.child();
     let val = f(&branch)?;
@@ -100,7 +87,7 @@ impl<'p, R: BranchRoot> Branch<'p, R> {
     }
   }
 
-  pub fn inspect<BI: BranchInspect<R>>(self: &'p Branch<'p, R>) -> Option<BI> {
-    self.scoped(BI::inspect)
+  pub fn inspect<Inspect: BranchInspect<R>>(self: &'p Branch<'p, R>) -> Option<Inspect> {
+    self.scoped(Inspect::inspect)
   }
 }
