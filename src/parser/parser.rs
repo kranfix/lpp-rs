@@ -1,7 +1,7 @@
 use dupe::{Dupe, OptionDupedExt};
 
 use crate::ast::*;
-use crate::branch::{Branch, Branchable};
+use crate::branch::{Branch, BranchRoot, UpdateFrom};
 use crate::lexer::{Lexer, Source};
 use crate::token::{Token, TokenKind, TokenValue, TokenValueKind};
 use crate::types::DefaultCell;
@@ -29,10 +29,9 @@ enum Precedence {
 pub struct Parser<S> {
   lexer: RefCell<Lexer<S>>,
   tokens: DefaultCell<Vec<Token>>,
-  token_pos: Cell<usize>,
   errors: DefaultCell<Vec<ParseError>>,
   values: DefaultCell<Vec<TokenValue>>,
-  value_idx: Cell<usize>,
+  branch_data: ParserBranchData,
 }
 
 impl<S> Parser<S> {
@@ -40,10 +39,9 @@ impl<S> Parser<S> {
     Parser {
       lexer: RefCell::new(lexer),
       tokens: DefaultCell::default(),
-      token_pos: Cell::new(0),
       errors: DefaultCell::default(),
       values: DefaultCell::default(),
-      value_idx: Cell::new(0),
+      branch_data: ParserBranchData::default(),
     }
   }
 
@@ -74,52 +72,28 @@ impl<S: Source> Parser<S> {
   }
 }
 
-impl<S: Source> Branchable for Parser<S> {
+impl UpdateFrom for ParserBranchData {
+  fn update_from(&self, other: &Self) {
+    let new_pos = other.token_pos.get();
+    let new_value_idx = other.value_idx.get();
+    self.token_pos.set(new_pos);
+    self.value_idx.set(new_value_idx);
+  }
+}
+
+impl<S: Source> BranchRoot for Parser<S> {
   type BranchData = ParserBranchData;
 
   type CommitError = ();
 
-  fn branch(&self) -> crate::branch::Branch<'_, Self> {
-    crate::branch::Branch::new(
-      self,
-      ParserBranchData {
-        token_pos: self.token_pos.dupe(),
-        is_accurate_alternative: Cell::new(false),
-        value_idx: self.value_idx.dupe(),
-      },
-    )
-  }
-
-  fn commit_branch(branch: &mut crate::branch::Branch<'_, Self>) -> Result<(), Self::CommitError> {
-    let new_pos = branch.token_pos.get();
-    let new_value_idx = branch.value_idx.get();
-    match branch.parent() {
-      Some(parent) => {
-        parent.token_pos.set(new_pos);
-        parent.value_idx.set(new_value_idx);
-      }
-      None => {
-        let root = branch.root();
-        root.token_pos.set(new_pos);
-        root.value_idx.set(new_value_idx);
-      }
-    }
-    Ok(())
-  }
-
-  fn on_drop_branch(branch: &mut Branch<'_, Self>) {
-    if branch.is_accurate_alternative.get() {
-      if let Some(parent) = branch.parent() {
-        parent.mark_accurate_alternative();
-      }
-    }
+  fn data(&self) -> &ParserBranchData {
+    &self.branch_data
   }
 }
 
-#[derive(Debug, Clone, Dupe)]
+#[derive(Debug, Clone, Dupe, Default)]
 pub struct ParserBranchData {
   pub(crate) token_pos: Cell<usize>,
-  pub(crate) is_accurate_alternative: Cell<bool>,
   pub(crate) value_idx: Cell<usize>,
 }
 
@@ -213,9 +187,6 @@ impl<'p, S: Source> Branch<'p, Parser<S>> {
 
   pub fn add_error(&self, error: ParseError) {
     self.root().add_error(error)
-  }
-  pub fn mark_accurate_alternative(&self) {
-    self.is_accurate_alternative.set(true);
   }
 }
 
