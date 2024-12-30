@@ -1,7 +1,7 @@
 use dupe::{Dupe, OptionDupedExt};
 
 use crate::ast::*;
-use crate::branch::{Branch, BranchRoot, UpdateFrom};
+use crate::branch::{Branch, BranchData, BranchRoot};
 use crate::lexer::{Lexer, Source};
 use crate::token::{Token, TokenKind, TokenValue, TokenValueKind};
 use crate::types::DefaultCell;
@@ -72,7 +72,13 @@ impl<S: Source> Parser<S> {
   }
 }
 
-impl UpdateFrom for ParserBranchData {
+impl BranchData for ParserBranchData {
+  fn child(&self) -> Self {
+    ParserBranchData {
+      token_pos: self.token_pos.dupe(),
+      value_idx: self.value_idx.dupe(),
+    }
+  }
   fn update_from(&self, other: &Self) {
     let new_pos = other.token_pos.get();
     let new_value_idx = other.value_idx.get();
@@ -91,7 +97,7 @@ impl<S: Source> BranchRoot for Parser<S> {
   }
 }
 
-#[derive(Debug, Clone, Dupe, Default)]
+#[derive(Debug, Default)]
 pub struct ParserBranchData {
   pub(crate) token_pos: Cell<usize>,
   pub(crate) value_idx: Cell<usize>,

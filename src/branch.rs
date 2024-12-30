@@ -1,8 +1,7 @@
-use dupe::Dupe;
 use std::ops::Deref;
 
 pub trait BranchRoot: Sized {
-  type BranchData: UpdateFrom;
+  type BranchData: BranchData;
   type CommitError;
 
   fn data(&self) -> &Self::BranchData;
@@ -17,7 +16,8 @@ pub trait BranchInspect<Root: BranchRoot>: Sized {
   fn inspect(branch: &Branch<'_, Root>) -> Option<Self>;
 }
 
-pub trait UpdateFrom: Dupe {
+pub trait BranchData {
+  fn child(&self) -> Self;
   fn update_from(&self, other: &Self);
 }
 
@@ -58,7 +58,7 @@ impl<'p, R: BranchRoot> CommitableBranch<'p, R> {
 
 impl<'p, R: BranchRoot> Branch<'p, R> {
   pub fn new(root: &'p R, parent_data: &'p R::BranchData) -> Self {
-    let data = parent_data.dupe();
+    let data = parent_data.child();
     Branch {
       root,
       parent_data,
