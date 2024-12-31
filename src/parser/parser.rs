@@ -119,7 +119,8 @@ pub enum ParseError {
 }
 impl<'p, S: Source> Branch<'p, Parser<S>> {
   pub fn take_next_token(&self) -> Option<Token> {
-    let tokens = self.root().tokens.borrow_mut();
+    let root = self.root();
+    let tokens = root.tokens.borrow_mut();
     let token_pos = self.token_pos.get();
     if token_pos < tokens.len() {
       let token = tokens[token_pos].dupe();
@@ -128,7 +129,7 @@ impl<'p, S: Source> Branch<'p, Parser<S>> {
     }
     drop(tokens);
 
-    let next_token = self.root().take_next_token()?;
+    let next_token = root.take_next_token()?;
     self.token_pos.set(token_pos + 1);
     Some(next_token)
   }
@@ -142,12 +143,8 @@ impl<'p, S: Source> Branch<'p, Parser<S>> {
         return None;
       }
 
-      let value_idx = branch.value_idx.get();
-
-      let token_value = branch.root().values.borrow()[value_idx].dupe();
+      let token_value = branch.take_next_value()?;
       let value = Kind::from_token_value(token_value)?;
-
-      branch.value_idx.set(value_idx + 1);
 
       Some((token, value))
     })
@@ -169,26 +166,24 @@ impl<'p, S: Source> Branch<'p, Parser<S>> {
     &self,
     eval: impl FnOnce(&'_ Branch<'_, Parser<S>>, Token) -> Option<T>,
   ) -> Option<T> {
-    let child = self.child();
-    let token = match child.take_next_token() {
-      Some(token) => token,
-      None => {
-        child
-          .root()
-          .add_error(ParseError::Msg("No more tokens".into()));
+    self.scoped(|b| {
+      let Some(token) = b.take_next_token() else {
+        b.root().add_error(ParseError::Msg("No more tokens".into()));
         return None;
-      }
-    };
-    let output = eval(&child, token)?;
-    match child.commit() {
-      Ok(_) => Some(output),
-      Err(_) => None,
-    }
+      };
+      eval(&b, token)
+    })
   }
 
-  pub fn take_next_value(&self) -> Option<TokenValue> {
+  fn take_next_value(&self) -> Option<TokenValue> {
+    let index = self.value_idx.get();
+
     let values = self.root().values.lazy_borrow()?;
-    values.get(self.value_idx.get()).duped()
+    let val = values.get(index).duped()?;
+
+    self.value_idx.set(index + 1);
+
+    Some(val)
   }
 
   pub fn add_error(&self, error: ParseError) {
