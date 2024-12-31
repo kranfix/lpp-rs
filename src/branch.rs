@@ -17,7 +17,7 @@ pub trait BranchInspect<Root: BranchRoot>: Sized {
 }
 
 pub trait BranchData {
-  fn child(&self) -> Self;
+  fn child_data(&self) -> Self;
   fn update_from(&self, other: &Self);
 }
 
@@ -58,7 +58,7 @@ impl<'p, R: BranchRoot> CommitableBranch<'p, R> {
 
 impl<'p, R: BranchRoot> Branch<'p, R> {
   pub fn new(root: &'p R, parent_data: &'p R::BranchData) -> Self {
-    let data = parent_data.child();
+    let data = parent_data.child_data();
     Branch {
       root,
       parent_data,

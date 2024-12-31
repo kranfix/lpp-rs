@@ -73,7 +73,7 @@ impl<S: Source> Parser<S> {
 }
 
 impl BranchData for ParserBranchData {
-  fn child(&self) -> Self {
+  fn child_data(&self) -> Self {
     ParserBranchData {
       token_pos: self.token_pos.dupe(),
       value_idx: self.value_idx.dupe(),
