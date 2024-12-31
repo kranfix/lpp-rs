@@ -13,7 +13,7 @@ pub trait BranchRoot: Sized {
 }
 
 pub trait BranchInspect<Root: BranchRoot>: Sized {
-  fn inspect(branch: &Branch<'_, Root>) -> Option<Self>;
+  fn inspect(branch: &mut Branch<'_, Root>) -> Option<Self>;
 }
 
 pub trait BranchData {
@@ -48,16 +48,16 @@ impl<'p, R: BranchRoot> Branch<'p, R> {
     &self.root
   }
 
-  pub fn scoped<Out, F>(self: &'p Branch<'p, R>, f: F) -> Option<Out>
+  pub fn scoped<Out, F>(&mut self, f: F) -> Option<Out>
   where
-    F: FnOnce(&Branch<'_, R>) -> Option<Out>,
+    F: FnOnce(&mut Branch<'_, R>) -> Option<Out>,
   {
-    let branch = self.child();
-    let val = f(&branch)?;
+    let mut branch = self.child();
+    let val = f(&mut branch)?;
     branch.commit(val)
   }
 
-  pub fn inspect<Inspect: BranchInspect<R>>(self: &'p Branch<'p, R>) -> Option<Inspect> {
+  pub fn inspect<Inspect: BranchInspect<R>>(&mut self) -> Option<Inspect> {
     self.scoped(Inspect::inspect)
   }
 

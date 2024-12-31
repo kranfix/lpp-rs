@@ -135,35 +135,35 @@ impl<'p, S: Source> Branch<'p, Parser<S>> {
   }
 
   pub fn take_token_kind_and_value<Kind: TokenValueKind>(
-    &self,
+    &mut self,
     kind: Kind,
   ) -> Option<(Token, Kind::Data)> {
-    self.take_token_kind_on(|branch, token| {
+    self.take_token_kind_on(|b, token| {
       if token.kind() != kind.token_kind() {
         return None;
       }
 
-      let token_value = branch.take_next_value()?;
+      let token_value = b.take_next_value()?;
       let value = Kind::from_token_value(token_value)?;
 
       Some((token, value))
     })
   }
 
-  pub fn take_token_kind(&self, kind: TokenKind) -> Option<Token> {
+  pub fn take_token_kind(&mut self, kind: TokenKind) -> Option<Token> {
     self.take_token_kind_on(|_, token| match kind == token.kind() {
       true => Some(token),
       false => None,
     })
   }
-  pub fn take_token_kind_when(&self, eval: impl FnOnce(TokenKind) -> bool) -> Option<Token> {
+  pub fn take_token_kind_when(&mut self, eval: impl FnOnce(TokenKind) -> bool) -> Option<Token> {
     self.take_token_kind_on(|_, token| match eval(token.kind()) {
       true => Some(token),
       false => None,
     })
   }
   fn take_token_kind_on<T>(
-    &self,
+    &mut self,
     eval: impl FnOnce(&'_ Branch<'_, Parser<S>>, Token) -> Option<T>,
   ) -> Option<T> {
     self.scoped(|b| {
