@@ -12,8 +12,17 @@ pub trait BranchRoot: Sized {
   }
 }
 
-pub trait BranchInspect<Root: BranchRoot>: Sized {
-  fn inspect(branch: &mut Branch<'_, Root>) -> Option<Self>;
+pub trait Inspect<Root: BranchRoot, Output = Self>
+where
+  Output: Sized,
+{
+  fn inspect(branch: &mut Branch<'_, Root>) -> Option<Output>;
+}
+
+pub trait InspectFrom<Root: BranchRoot> {
+  type Output;
+
+  fn inspect_from(branch: &mut Branch<'_, Root>, value: Self) -> Option<Self::Output>;
 }
 
 pub trait BranchData {
@@ -48,6 +57,16 @@ impl<'p, R: BranchRoot> Branch<'p, R> {
     &self.root
   }
 
+  pub fn inspect<T: Inspect<R>>(&mut self) -> Option<T> {
+    let mut branch = self.child();
+    let val = T::inspect(&mut branch)?;
+    branch.commit(val)
+  }
+  pub fn inspect_for<T: InspectFrom<R>>(&mut self, value: T) -> Option<T::Output> {
+    let mut branch = self.child();
+    let val = T::inspect_from(&mut branch, value)?;
+    branch.commit(val)
+  }
   pub fn scoped<Out, F>(&mut self, f: F) -> Option<Out>
   where
     F: FnOnce(&mut Branch<'_, R>) -> Option<Out>,
@@ -57,10 +76,6 @@ impl<'p, R: BranchRoot> Branch<'p, R> {
     branch.commit(val)
   }
 
-  pub fn inspect<Inspect: BranchInspect<R>>(&mut self) -> Option<Inspect> {
-    self.scoped(Inspect::inspect)
-  }
-
   fn child(&self) -> Branch<'_, R> {
     Branch::new(self.root, self.parent_data)
   }
@@ -68,5 +83,16 @@ impl<'p, R: BranchRoot> Branch<'p, R> {
     let parent_data: &R::BranchData = self.parent_data;
     parent_data.update_from(&self.data);
     Some(val)
+  }
+}
+
+impl<R: BranchRoot, Output, F> InspectFrom<R> for F
+where
+  F: FnOnce(&mut Branch<'_, R>) -> Option<Output>,
+{
+  type Output = Output;
+
+  fn inspect_from(branch: &mut Branch<'_, R>, f: Self) -> Option<Self::Output> {
+    f(branch)
   }
 }

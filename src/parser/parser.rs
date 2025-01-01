@@ -1,9 +1,9 @@
 use dupe::{Dupe, OptionDupedExt};
 
 use crate::ast::*;
-use crate::branch::{Branch, BranchData, BranchRoot};
+use crate::branch::{Branch, BranchData, BranchRoot, InspectFrom};
 use crate::lexer::{Lexer, Source};
-use crate::token::{Token, TokenKind, TokenValue, TokenValueKind};
+use crate::token::{Token, TokenKind, TokenValue};
 use crate::types::DefaultCell;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -103,22 +103,15 @@ pub struct ParserBranchData {
   pub(crate) value_idx: Cell<usize>,
 }
 
-// pub struct ParserBranch<'r, 'p>(Branch<'r, 'p, Parser<'p>>);
-// impl<'r, 'p> Deref for ParserBranch<'r, 'p> {
-//   type Target = Branch<'r, 'p, Parser<'p>>;
-
-//   fn deref(&self) -> &Self::Target {
-//     &self.0
-//   }
-// }
-
 #[derive(Debug)]
 pub enum ParseError {
   Msg(String),
   InvalidValueFormat(String),
 }
-impl<'p, S: Source> Branch<'p, Parser<S>> {
-  pub fn take_next_token(&self) -> Option<Token> {
+type ParserBranch<'p, S> = Branch<'p, Parser<S>>;
+
+impl<'p, S: Source> ParserBranch<'p, S> {
+  pub(crate) fn take_next_token(&self) -> Option<Token> {
     let root = self.root();
     let tokens = root.tokens.borrow_mut();
     let token_pos = self.token_pos.get();
@@ -129,53 +122,17 @@ impl<'p, S: Source> Branch<'p, Parser<S>> {
     }
     drop(tokens);
 
-    let next_token = root.take_next_token()?;
+    let Some(next_token) = root.take_next_token() else {
+      self
+        .root()
+        .add_error(ParseError::Msg("No more tokens".into()));
+      return None;
+    };
     self.token_pos.set(token_pos + 1);
     Some(next_token)
   }
 
-  pub fn take_token_kind_and_value<Kind: TokenValueKind>(
-    &mut self,
-    kind: Kind,
-  ) -> Option<(Token, Kind::Data)> {
-    self.take_token_kind_on(|b, token| {
-      if token.kind() != kind.token_kind() {
-        return None;
-      }
-
-      let token_value = b.take_next_value()?;
-      let value = Kind::from_token_value(token_value)?;
-
-      Some((token, value))
-    })
-  }
-
-  pub fn take_token_kind(&mut self, kind: TokenKind) -> Option<Token> {
-    self.take_token_kind_on(|_, token| match kind == token.kind() {
-      true => Some(token),
-      false => None,
-    })
-  }
-  pub fn take_token_kind_when(&mut self, eval: impl FnOnce(TokenKind) -> bool) -> Option<Token> {
-    self.take_token_kind_on(|_, token| match eval(token.kind()) {
-      true => Some(token),
-      false => None,
-    })
-  }
-  fn take_token_kind_on<T>(
-    &mut self,
-    eval: impl FnOnce(&'_ Branch<'_, Parser<S>>, Token) -> Option<T>,
-  ) -> Option<T> {
-    self.scoped(|b| {
-      let Some(token) = b.take_next_token() else {
-        b.root().add_error(ParseError::Msg("No more tokens".into()));
-        return None;
-      };
-      eval(&b, token)
-    })
-  }
-
-  fn take_next_value(&self) -> Option<TokenValue> {
+  pub(crate) fn take_next_value(&self) -> Option<TokenValue> {
     let index = self.value_idx.get();
 
     let values = self.root().values.lazy_borrow()?;
@@ -188,6 +145,19 @@ impl<'p, S: Source> Branch<'p, Parser<S>> {
 
   pub fn add_error(&self, error: ParseError) {
     self.root().add_error(error)
+  }
+}
+
+impl<S: Source> InspectFrom<Parser<S>> for TokenKind {
+  type Output = Token;
+
+  fn inspect_from(branch: &mut Branch<'_, Parser<S>>, kind: Self) -> Option<Self::Output> {
+    let token = branch.take_next_token()?;
+    if token.kind() == kind {
+      Some(token)
+    } else {
+      None
+    }
   }
 }
 
