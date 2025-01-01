@@ -23,9 +23,11 @@ impl<T: Default> DefaultCell<T> {
   }
 
   pub fn borrow(&self) -> Ref<'_, T> {
+    self.initialized.set(true);
     Ref::map(self.lazy.borrow(), |v| v)
   }
   pub fn borrow_mut(&self) -> RefMut<'_, T> {
+    self.initialized.set(true);
     RefMut::map(self.lazy.borrow_mut(), |v| v)
   }
   pub fn update<F, R>(&self, f: F) -> R

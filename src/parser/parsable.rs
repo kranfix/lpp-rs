@@ -151,31 +151,37 @@ impl Parsable for Ident {
 impl Parsable for Int {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
     let token = branch.take_next_token_by_kind(TokenKind::Int)?;
-    let TokenValue::Int(value) = branch.take_next_value()? else {
-      return None;
-    };
+    let value = branch.take_next_value_if(|value| {
+      let TokenValue::Int(value) = value else {
+        return None;
+      };
+      Some(value)
+    })?;
     Some(Int::new(token, value))
   }
 }
 
 impl Parsable for Bool {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
-    if let Some(token) = branch.take_next_token_by_kind(TokenKind::True) {
-      return Some(Bool::new(token, true));
-    }
-    if let Some(token) = branch.take_next_token_by_kind(TokenKind::False) {
-      return Some(Bool::new(token, false));
-    }
-    None
+    let token = branch.take_next_token()?;
+    let value = match token.kind() {
+      TokenKind::True => true,
+      TokenKind::False => false,
+      _ => return None,
+    };
+    Some(Bool::new(token, value))
   }
 }
 
 impl Parsable for StringLiteral {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
     let token = branch.take_next_token_by_kind(TokenKind::String)?;
-    let TokenValue::String(value) = branch.take_next_value()? else {
-      return None;
-    };
+    let value = branch.take_next_value_if(|value| {
+      let TokenValue::String(value) = value else {
+        return None;
+      };
+      Some(value)
+    })?;
     Some(StringLiteral::new(token, value))
   }
 }

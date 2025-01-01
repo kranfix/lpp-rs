@@ -58,6 +58,10 @@ impl<S> Parser<S> {
   pub(crate) fn current_token(&self) -> Option<Token> {
     self.tokens.borrow().last().duped()
   }
+  pub fn value_at(&self, index: usize) -> Option<TokenValue> {
+    let values = self.values.lazy_borrow()?;
+    values.get(index).duped()
+  }
 }
 impl<S: Source> Parser<S> {
   fn take_next_token(&self) -> Option<Token> {
@@ -132,11 +136,14 @@ impl<'p, S: Source> ParserBranch<'p, S> {
     Some(next_token)
   }
 
-  pub(crate) fn take_next_value(&self) -> Option<TokenValue> {
+  pub(crate) fn take_next_value_if<F, T>(&self, f: F) -> Option<T>
+  where
+    F: FnOnce(TokenValue) -> Option<T>,
+  {
     let index = self.value_idx.get();
 
-    let values = self.root().values.lazy_borrow()?;
-    let val = values.get(index).duped()?;
+    let token_value = self.root().value_at(index)?;
+    let val = f(token_value)?;
 
     self.value_idx.set(index + 1);
 
