@@ -50,11 +50,11 @@ impl Parsable for Statement {
 
 impl Parsable for LetStatement {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
-    let let_token = branch.inspect_for(TokenKind::Let)?;
+    let let_token = branch.take_next_token_by_kind(TokenKind::Let)?;
     let name: Ident = branch.inspect()?;
-    branch.inspect_for(TokenKind::Assign)?;
+    branch.take_next_token_by_kind(TokenKind::Assign)?;
     let value: Expression = branch.inspect()?;
-    branch.inspect_for(TokenKind::Semicolon)?;
+    branch.take_next_token_by_kind(TokenKind::Semicolon)?;
 
     let st = LetStatement::new(let_token, name, value);
     Some(st)
@@ -63,9 +63,9 @@ impl Parsable for LetStatement {
 
 impl Parsable for ReturnStatement {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
-    let return_token = branch.inspect_for(TokenKind::Return)?;
+    let return_token = branch.take_next_token_by_kind(TokenKind::Return)?;
     let return_exp: Expression = branch.inspect()?;
-    branch.inspect_for(TokenKind::Semicolon)?;
+    branch.take_next_token_by_kind(TokenKind::Semicolon)?;
 
     let st = ReturnStatement::new(return_token, return_exp);
     Some(st)
@@ -75,7 +75,7 @@ impl Parsable for ReturnStatement {
 impl Parsable for ExpressionStatement {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
     let expression: Expression = branch.inspect()?;
-    branch.inspect_for(TokenKind::Semicolon)?;
+    branch.take_next_token_by_kind(TokenKind::Semicolon)?;
     let st = ExpressionStatement::new(expression);
     Some(st)
   }
@@ -83,11 +83,11 @@ impl Parsable for ExpressionStatement {
 
 impl Parsable for Block {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
-    let token = branch.inspect_for(TokenKind::LBrace)?;
+    let token = branch.take_next_token_by_kind(TokenKind::LBrace)?;
 
     let mut statements = Vec::new();
     loop {
-      if let Some(_) = branch.inspect_for(TokenKind::RBrace) {
+      if let Some(_) = branch.take_next_token_by_kind(TokenKind::RBrace) {
         return Some(Block::new(token, statements));
       }
       match branch.inspect::<Statement>() {
@@ -143,14 +143,14 @@ impl Parsable for Expression {
 
 impl Parsable for Ident {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
-    let ident_token = branch.inspect_for(TokenKind::Ident)?;
+    let ident_token = branch.take_next_token_by_kind(TokenKind::Ident)?;
     Some(Ident::new(ident_token))
   }
 }
 
 impl Parsable for Int {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
-    let token = branch.inspect_for(TokenKind::Int)?;
+    let token = branch.take_next_token_by_kind(TokenKind::Int)?;
     let TokenValue::Int(value) = branch.take_next_value()? else {
       return None;
     };
@@ -160,10 +160,10 @@ impl Parsable for Int {
 
 impl Parsable for Bool {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
-    if let Some(token) = branch.inspect_for(TokenKind::True) {
+    if let Some(token) = branch.take_next_token_by_kind(TokenKind::True) {
       return Some(Bool::new(token, true));
     }
-    if let Some(token) = branch.inspect_for(TokenKind::False) {
+    if let Some(token) = branch.take_next_token_by_kind(TokenKind::False) {
       return Some(Bool::new(token, false));
     }
     None
@@ -172,7 +172,7 @@ impl Parsable for Bool {
 
 impl Parsable for StringLiteral {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
-    let token = branch.inspect_for(TokenKind::String)?;
+    let token = branch.take_next_token_by_kind(TokenKind::String)?;
     let TokenValue::String(value) = branch.take_next_value()? else {
       return None;
     };
@@ -182,15 +182,15 @@ impl Parsable for StringLiteral {
 
 impl Parsable for If {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
-    let if_token = branch.inspect_for(TokenKind::If)?;
-    let _lparent = branch.inspect_for(TokenKind::LParen)?;
+    let if_token = branch.take_next_token_by_kind(TokenKind::If)?;
+    let _lparent = branch.take_next_token_by_kind(TokenKind::LParen)?;
     let condition: Expression = branch.inspect()?;
-    let _rparent = branch.inspect_for(TokenKind::RParen)?;
+    let _rparent = branch.take_next_token_by_kind(TokenKind::RParen)?;
 
     let consequence: Block = branch.inspect()?;
 
     let alternative = branch.scoped(|b| {
-      let _else_token = b.inspect_for(TokenKind::Else)?;
+      let _else_token = b.take_next_token_by_kind(TokenKind::Else)?;
       b.inspect::<Block>()
     });
 

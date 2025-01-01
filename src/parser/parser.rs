@@ -1,7 +1,7 @@
 use dupe::{Dupe, OptionDupedExt};
 
 use crate::ast::*;
-use crate::branch::{Branch, BranchData, BranchRoot, InspectFrom};
+use crate::branch::{Branch, BranchData, BranchRoot};
 use crate::lexer::{Lexer, Source};
 use crate::token::{Token, TokenKind, TokenValue};
 use crate::types::DefaultCell;
@@ -46,11 +46,10 @@ impl<S> Parser<S> {
   }
 
   pub(crate) fn add_token(&self, token: Token, token_value: Option<TokenValue>) {
-    let mut tokens = self.tokens.borrow_mut();
+    self.tokens.borrow_mut().push(token);
     if let Some(token_value) = token_value {
       self.values.borrow_mut().push(token_value)
     }
-    tokens.push(token);
   }
   pub(crate) fn add_error(&self, error: ParseError) {
     let mut errors = self.errors.borrow_mut();
@@ -113,8 +112,9 @@ type ParserBranch<'p, S> = Branch<'p, Parser<S>>;
 impl<'p, S: Source> ParserBranch<'p, S> {
   pub(crate) fn take_next_token(&self) -> Option<Token> {
     let root = self.root();
-    let tokens = root.tokens.borrow_mut();
     let token_pos = self.token_pos.get();
+
+    let tokens = root.tokens.borrow_mut();
     if token_pos < tokens.len() {
       let token = tokens[token_pos].dupe();
       self.token_pos.set(token_pos + 1);
@@ -143,21 +143,17 @@ impl<'p, S: Source> ParserBranch<'p, S> {
     Some(val)
   }
 
-  pub fn add_error(&self, error: ParseError) {
-    self.root().add_error(error)
-  }
-}
-
-impl<S: Source> InspectFrom<Parser<S>> for TokenKind {
-  type Output = Token;
-
-  fn inspect_from(branch: &mut Branch<'_, Parser<S>>, kind: Self) -> Option<Self::Output> {
-    let token = branch.take_next_token()?;
+  pub fn take_next_token_by_kind(&self, kind: TokenKind) -> Option<Token> {
+    let token = self.take_next_token()?;
     if token.kind() == kind {
       Some(token)
     } else {
       None
     }
+  }
+
+  pub fn add_error(&self, error: ParseError) {
+    self.root().add_error(error)
   }
 }
 
