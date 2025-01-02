@@ -87,6 +87,21 @@ pub enum TokenValue {
   //Bool(bool),
 }
 
+impl TokenValue {
+  pub fn to_int(self) -> Option<u32> {
+    match self {
+      TokenValue::Int(value) => Some(value),
+      _ => None,
+    }
+  }
+  pub fn to_string(self) -> Option<Rc<str>> {
+    match self {
+      TokenValue::String(value) => Some(value),
+      _ => None,
+    }
+  }
+}
+
 impl From<u32> for TokenValue {
   fn from(value: u32) -> Self {
     TokenValue::Int(value)

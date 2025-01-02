@@ -28,7 +28,7 @@ enum Precedence {
 #[derive(Debug)]
 pub struct Parser<S> {
   lexer: RefCell<Lexer<S>>,
-  tokens: DefaultCell<Vec<Token>>,
+  tokens: RefCell<Vec<Token>>,
   errors: DefaultCell<Vec<ParseError>>,
   values: DefaultCell<Vec<TokenValue>>,
   branch_data: ParserBranchData,
@@ -38,25 +38,16 @@ impl<S> Parser<S> {
   pub fn new(lexer: Lexer<S>) -> Parser<S> {
     Parser {
       lexer: RefCell::new(lexer),
-      tokens: DefaultCell::default(),
+      tokens: RefCell::default(),
       errors: DefaultCell::default(),
       values: DefaultCell::default(),
       branch_data: ParserBranchData::default(),
     }
   }
 
-  pub(crate) fn add_token(&self, token: Token, token_value: Option<TokenValue>) {
-    self.tokens.borrow_mut().push(token);
-    if let Some(token_value) = token_value {
-      self.values.borrow_mut().push(token_value)
-    }
-  }
   pub(crate) fn add_error(&self, error: ParseError) {
     let mut errors = self.errors.borrow_mut();
     errors.push(error);
-  }
-  pub(crate) fn current_token(&self) -> Option<Token> {
-    self.tokens.borrow().last().duped()
   }
   pub fn value_at(&self, index: usize) -> Option<TokenValue> {
     let values = self.values.lazy_borrow()?;
@@ -64,14 +55,21 @@ impl<S> Parser<S> {
   }
 }
 impl<S: Source> Parser<S> {
-  fn take_next_token(&self) -> Option<Token> {
-    self.inspect_next_token()?;
-    self.current_token()
-  }
-  fn inspect_next_token(&self) -> Option<()> {
-    let (token, token_value) = { self.lexer.borrow_mut().next()? };
-    self.add_token(token, token_value);
-    Some(())
+  pub fn token_at(&self, index: usize) -> Option<Token> {
+    let mut tokens = self.tokens.borrow_mut();
+    let mut lexer = self.lexer.borrow_mut();
+
+    while tokens.len() <= index {
+      let Some((token, value)) = lexer.next() else {
+        self.add_error(ParseError::NoMoreTokens);
+        return None;
+      };
+      tokens.push(token);
+      if let Some(value) = value {
+        self.values.borrow_mut().push(value)
+      }
+    }
+    tokens.get(index).duped()
   }
 }
 
@@ -110,44 +108,28 @@ pub struct ParserBranchData {
 pub enum ParseError {
   Msg(String),
   InvalidValueFormat(String),
+  NoMoreTokens,
 }
 type ParserBranch<'p, S> = Branch<'p, Parser<S>>;
 
 impl<'p, S: Source> ParserBranch<'p, S> {
   pub(crate) fn take_next_token(&self) -> Option<Token> {
-    let root = self.root();
     let token_pos = self.token_pos.get();
 
-    let tokens = root.tokens.borrow_mut();
-    if token_pos < tokens.len() {
-      let token = tokens[token_pos].dupe();
-      self.token_pos.set(token_pos + 1);
-      return Some(token);
-    }
-    drop(tokens);
+    let token = self.root().token_at(token_pos)?;
 
-    let Some(next_token) = root.take_next_token() else {
-      self
-        .root()
-        .add_error(ParseError::Msg("No more tokens".into()));
-      return None;
-    };
     self.token_pos.set(token_pos + 1);
-    Some(next_token)
+    return Some(token);
   }
 
-  pub(crate) fn take_next_value_if<F, T>(&self, f: F) -> Option<T>
-  where
-    F: FnOnce(TokenValue) -> Option<T>,
-  {
+  pub(crate) fn take_next_value(&self) -> Option<TokenValue> {
     let index = self.value_idx.get();
 
     let token_value = self.root().value_at(index)?;
-    let val = f(token_value)?;
 
     self.value_idx.set(index + 1);
 
-    Some(val)
+    Some(token_value)
   }
 
   pub fn take_next_token_by_kind(&self, kind: TokenKind) -> Option<Token> {

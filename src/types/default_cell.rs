@@ -1,10 +1,13 @@
-use std::cell::{Cell, LazyCell, Ref, RefCell, RefMut};
+use std::{
+  cell::{Cell, Ref, RefCell, RefMut},
+  sync::LazyLock,
+};
 
 #[derive(Debug, Default)]
 pub struct DefaultCell<T> {
   // TODO(kranfix): remove when all the API of LazyCell is stable
   initialized: Cell<bool>,
-  lazy: LazyCell<RefCell<T>>,
+  lazy: LazyLock<RefCell<T>>,
 }
 
 impl<T: Default> DefaultCell<T> {

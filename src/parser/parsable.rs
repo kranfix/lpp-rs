@@ -5,7 +5,7 @@ use crate::{
   },
   branch::{Branch, Inspect},
   lexer::Source,
-  token::{TokenKind, TokenValue},
+  token::TokenKind,
 };
 
 use super::parser::{ParseError, Parser};
@@ -151,12 +151,7 @@ impl Parsable for Ident {
 impl Parsable for Int {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
     let token = branch.take_next_token_by_kind(TokenKind::Int)?;
-    let value = branch.take_next_value_if(|value| {
-      let TokenValue::Int(value) = value else {
-        return None;
-      };
-      Some(value)
-    })?;
+    let value = branch.take_next_value()?.to_int()?;
     Some(Int::new(token, value))
   }
 }
@@ -176,12 +171,7 @@ impl Parsable for Bool {
 impl Parsable for StringLiteral {
   fn parse<S: Source>(branch: &mut Branch<'_, Parser<S>>) -> Option<Self> {
     let token = branch.take_next_token_by_kind(TokenKind::String)?;
-    let value = branch.take_next_value_if(|value| {
-      let TokenValue::String(value) = value else {
-        return None;
-      };
-      Some(value)
-    })?;
+    let value = branch.take_next_value()?.to_string()?;
     Some(StringLiteral::new(token, value))
   }
 }
