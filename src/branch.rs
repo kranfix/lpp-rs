@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use core::{fmt::Debug, ops::Deref};
 
 pub trait BranchRoot: Sized {
   type BranchData: BranchData;
@@ -25,9 +25,9 @@ pub trait InspectFrom<Root: BranchRoot> {
   fn inspect_from(branch: &mut Branch<'_, Root>, value: Self) -> Option<Self::Output>;
 }
 
-pub trait BranchData {
+pub trait BranchData: Debug {
   fn child_data(&self) -> Self;
-  fn update_from(&self, other: &Self);
+  fn update_from(&self, other: Self);
 }
 
 #[derive(Debug)]
@@ -46,11 +46,10 @@ impl<'p, R: 'p + BranchRoot> Deref for Branch<'p, R> {
 
 impl<'p, R: BranchRoot> Branch<'p, R> {
   pub fn new(root: &'p R, parent_data: &'p R::BranchData) -> Self {
-    let data = parent_data.child_data();
     Branch {
       root,
+      data: parent_data.child_data(),
       parent_data,
-      data,
     }
   }
   pub fn root(&self) -> &'p R {
@@ -77,11 +76,13 @@ impl<'p, R: BranchRoot> Branch<'p, R> {
   }
 
   fn child(&self) -> Branch<'_, R> {
-    Branch::new(self.root, self.parent_data)
+    Branch::new(self.root, &self.data)
   }
   fn commit<T>(self, val: T) -> Option<T> {
-    let parent_data: &R::BranchData = self.parent_data;
-    parent_data.update_from(&self.data);
+    let Branch {
+      parent_data, data, ..
+    } = self;
+    parent_data.update_from(data);
     Some(val)
   }
 }

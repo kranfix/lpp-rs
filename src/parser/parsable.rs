@@ -94,7 +94,9 @@ impl Parsable for Block {
         Some(st) => statements.push(st),
         None => {
           if !statements.is_empty() {
-            branch.add_error(ParseError::Msg("Expected a statement".into()))
+            branch
+              .root()
+              .add_error(ParseError::Msg("Expected a statement".into()))
           }
           return None;
         }
@@ -226,13 +228,19 @@ mod test {
 
   #[test]
   fn ident_parse_test() {
-    let source = " my_ident ";
+    let source = " my_ident other_ident ";
     let lexer = Lexer::new(&source);
 
     let parser = Parser::new(lexer);
-    let ident: Ident = parser.branch().inspect().unwrap();
+    let mut branch = parser.branch();
+
+    let ident: Ident = branch.inspect().unwrap();
     let ident_name = ident.token_literal(&source);
-    assert_eq!(ident_name, "my_ident")
+    assert_eq!(ident_name, "my_ident");
+
+    let ident: Ident = branch.inspect().unwrap();
+    let ident_name = ident.token_literal(&source);
+    assert_eq!(ident_name, "other_ident")
   }
 
   #[test]
@@ -247,22 +255,17 @@ mod test {
   }
 
   #[test]
-  fn false_parse_test() {
-    let source = " false ";
+  fn bool_parse_test() {
+    let source = " false true ";
     let lexer = Lexer::new(&source);
 
     let parser = Parser::new(lexer);
-    let boolean: Bool = parser.branch().inspect().unwrap();
+    let mut branch = parser.branch();
+
+    let boolean: Bool = branch.inspect().unwrap();
     assert_eq!(boolean.value(), false);
-  }
 
-  #[test]
-  fn true_parse_test() {
-    let source = " true ";
-    let lexer = Lexer::new(&source);
-
-    let parser = Parser::new(lexer);
-    let boolean: Bool = parser.branch().inspect().unwrap();
+    let boolean: Bool = branch.inspect().unwrap();
     assert_eq!(boolean.value(), true);
   }
 

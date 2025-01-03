@@ -7,7 +7,7 @@ use dupe::Dupe;
 
 use crate::types::Literal;
 
-#[derive(Clone, Debug, Dupe)]
+#[derive(Clone, Debug, Dupe, PartialEq, Eq)]
 pub struct Token {
   kind: TokenKind,
   start: usize,

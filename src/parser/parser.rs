@@ -1,18 +1,11 @@
 use dupe::{Dupe, OptionDupedExt};
 
-use crate::ast::*;
 use crate::branch::{Branch, BranchData, BranchRoot};
 use crate::lexer::{Lexer, Source};
 use crate::token::{Token, TokenKind, TokenValue};
 use crate::types::DefaultCell;
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
 use std::iter::Iterator;
-
-type PrefixParseFn = Box<dyn Fn() -> Option<Expression>>;
-type InfixParseFn = Box<dyn Fn(Expression) -> Option<Expression>>;
-type PrefixParseFns = HashMap<TokenKind, PrefixParseFn>;
-type InfixParseFns = HashMap<TokenKind, InfixParseFn>;
 
 #[repr(u8)]
 enum Precedence {
@@ -76,11 +69,11 @@ impl<S: Source> Parser<S> {
 impl BranchData for ParserBranchData {
   fn child_data(&self) -> Self {
     ParserBranchData {
-      token_pos: self.token_pos.dupe(),
-      value_idx: self.value_idx.dupe(),
+      token_pos: Cell::new(self.token_pos.get()),
+      value_idx: Cell::new(self.value_idx.get()),
     }
   }
-  fn update_from(&self, other: &Self) {
+  fn update_from(&self, other: Self) {
     let new_pos = other.token_pos.get();
     let new_value_idx = other.value_idx.get();
     self.token_pos.set(new_pos);
@@ -115,8 +108,17 @@ type ParserBranch<'p, S> = Branch<'p, Parser<S>>;
 impl<'p, S: Source> ParserBranch<'p, S> {
   pub(crate) fn take_next_token(&self) -> Option<Token> {
     let token_pos = self.token_pos.get();
-
     let token = self.root().token_at(token_pos)?;
+    self.token_pos.set(token_pos + 1);
+    return Some(token);
+  }
+  pub(crate) fn take_next_token_by_kind(&self, kind: TokenKind) -> Option<Token> {
+    let token_pos = self.token_pos.get();
+    let token = self.root().token_at(token_pos)?;
+
+    if token.kind() != kind {
+      return None;
+    }
 
     self.token_pos.set(token_pos + 1);
     return Some(token);
@@ -130,19 +132,6 @@ impl<'p, S: Source> ParserBranch<'p, S> {
     self.value_idx.set(index + 1);
 
     Some(token_value)
-  }
-
-  pub fn take_next_token_by_kind(&self, kind: TokenKind) -> Option<Token> {
-    let token = self.take_next_token()?;
-    if token.kind() == kind {
-      Some(token)
-    } else {
-      None
-    }
-  }
-
-  pub fn add_error(&self, error: ParseError) {
-    self.root().add_error(error)
   }
 }
 
