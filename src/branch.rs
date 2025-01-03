@@ -1,14 +1,14 @@
 use core::{fmt::Debug, ops::Deref};
+use std::ops::DerefMut;
 
 pub trait BranchRoot: Sized {
   type BranchData: BranchData;
   type CommitError;
 
-  fn data(&self) -> &Self::BranchData;
+  fn data(&self) -> Self::BranchData;
 
-  fn branch(&self) -> crate::branch::Branch<'_, Self> {
-    let data = self.data();
-    crate::branch::Branch::new(self, data)
+  fn branch(&mut self) -> crate::branch::Branch<'_, Self> {
+    crate::branch::Branch::from_root(self)
   }
 }
 
@@ -27,13 +27,13 @@ pub trait InspectFrom<Root: BranchRoot> {
 
 pub trait BranchData: Debug {
   fn child_data(&self) -> Self;
-  fn update_from(&self, other: Self);
+  fn update_from(&mut self, other: Self);
 }
 
 #[derive(Debug)]
 pub struct Branch<'p, R: BranchRoot> {
   root: &'p R,
-  parent_data: &'p R::BranchData,
+  parent_data: Option<&'p mut R::BranchData>,
   data: R::BranchData,
 }
 impl<'p, R: 'p + BranchRoot> Deref for Branch<'p, R> {
@@ -43,13 +43,25 @@ impl<'p, R: 'p + BranchRoot> Deref for Branch<'p, R> {
     &self.data
   }
 }
+impl<'p, R: 'p + BranchRoot> DerefMut for Branch<'p, R> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.data
+  }
+}
 
 impl<'p, R: BranchRoot> Branch<'p, R> {
-  pub fn new(root: &'p R, parent_data: &'p R::BranchData) -> Self {
+  fn from_root(root: &'p R) -> Self {
+    Branch {
+      data: root.data(),
+      parent_data: None,
+      root,
+    }
+  }
+  pub fn new(root: &'p R, parent_data: &'p mut R::BranchData) -> Self {
     Branch {
       root,
       data: parent_data.child_data(),
-      parent_data,
+      parent_data: Some(parent_data),
     }
   }
   pub fn root(&self) -> &'p R {
@@ -75,14 +87,17 @@ impl<'p, R: BranchRoot> Branch<'p, R> {
     branch.commit(val)
   }
 
-  fn child(&self) -> Branch<'_, R> {
-    Branch::new(self.root, &self.data)
+  fn child(&mut self) -> Branch<'_, R> {
+    Branch::new(self.root, &mut self.data)
   }
   fn commit<T>(self, val: T) -> Option<T> {
     let Branch {
       parent_data, data, ..
     } = self;
-    parent_data.update_from(data);
+
+    if let Some(parent_data) = parent_data {
+      parent_data.update_from(data);
+    }
     Some(val)
   }
 }

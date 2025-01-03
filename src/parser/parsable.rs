@@ -231,7 +231,7 @@ mod test {
     let source = " my_ident other_ident ";
     let lexer = Lexer::new(&source);
 
-    let parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer);
     let mut branch = parser.branch();
 
     let ident: Ident = branch.inspect().unwrap();
@@ -248,7 +248,7 @@ mod test {
     let source = " 54321 ";
     let lexer = Lexer::new(&source);
 
-    let parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer);
     let int: Int = parser.branch().inspect().unwrap();
     let int_text = NodeFormatter::new(source, &int).to_string();
     assert_eq!(int_text, "54321");
@@ -259,7 +259,7 @@ mod test {
     let source = " false true ";
     let lexer = Lexer::new(&source);
 
-    let parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer);
     let mut branch = parser.branch();
 
     let boolean: Bool = branch.inspect().unwrap();
@@ -274,7 +274,7 @@ mod test {
     let source = r#" "hello world"  "#;
     let lexer = Lexer::new(&source);
 
-    let parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer);
     let string_literal: StringLiteral = parser.branch().inspect().unwrap();
     assert_eq!(&*string_literal.value(), "hello world");
   }
@@ -289,7 +289,7 @@ mod test {
 "#;
     let lexer = Lexer::new(&source);
 
-    let parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer);
     let st: If = parser.branch().inspect().unwrap();
     let (condition, _consequence, alternative) = st.parts();
 
@@ -309,7 +309,7 @@ mod test {
 "#;
     let lexer = Lexer::new(&source);
 
-    let parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer);
     let st: If = parser.branch().inspect().unwrap();
     let (condition, _consequence, alternative) = st.parts();
 
@@ -322,7 +322,7 @@ mod test {
     let source = "  let my_var = other_var; ";
     let lexer = Lexer::new(&source);
 
-    let parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer);
     let st: LetStatement = parser.branch().inspect().unwrap();
     let st_token_literal = NodeFormatter::new(source, &st).to_string();
     assert_eq!(st_token_literal, "let my_var = other_var");
@@ -333,7 +333,7 @@ mod test {
     let source = " !false ";
     let lexer = Lexer::new(&source);
 
-    let parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer);
     let prefix: Prefix = parser.branch().inspect().unwrap();
     let prefix = NodeFormatter::new(source, &prefix).to_string();
     assert_eq!(prefix, "!false");
@@ -344,7 +344,7 @@ mod test {
     let source = " -5 ";
     let lexer = Lexer::new(&source);
 
-    let parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer);
     let prefix: Prefix = parser.branch().inspect().unwrap();
     let prefix = NodeFormatter::new(source, &prefix).to_string();
     assert_eq!(prefix, "-5");

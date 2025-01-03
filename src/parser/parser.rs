@@ -1,10 +1,10 @@
-use dupe::{Dupe, OptionDupedExt};
+use dupe::OptionDupedExt;
 
 use crate::branch::{Branch, BranchData, BranchRoot};
 use crate::lexer::{Lexer, Source};
 use crate::token::{Token, TokenKind, TokenValue};
 use crate::types::DefaultCell;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::iter::Iterator;
 
 #[repr(u8)]
@@ -69,15 +69,13 @@ impl<S: Source> Parser<S> {
 impl BranchData for ParserBranchData {
   fn child_data(&self) -> Self {
     ParserBranchData {
-      token_pos: Cell::new(self.token_pos.get()),
-      value_idx: Cell::new(self.value_idx.get()),
+      token_pos: self.token_pos,
+      value_idx: self.value_idx,
     }
   }
-  fn update_from(&self, other: Self) {
-    let new_pos = other.token_pos.get();
-    let new_value_idx = other.value_idx.get();
-    self.token_pos.set(new_pos);
-    self.value_idx.set(new_value_idx);
+  fn update_from(&mut self, other: Self) {
+    self.token_pos = other.token_pos;
+    self.value_idx = other.value_idx;
   }
 }
 
@@ -86,15 +84,15 @@ impl<S: Source> BranchRoot for Parser<S> {
 
   type CommitError = ();
 
-  fn data(&self) -> &ParserBranchData {
-    &self.branch_data
+  fn data(&self) -> ParserBranchData {
+    ParserBranchData::default()
   }
 }
 
 #[derive(Debug, Default)]
 pub struct ParserBranchData {
-  pub(crate) token_pos: Cell<usize>,
-  pub(crate) value_idx: Cell<usize>,
+  pub(crate) token_pos: usize,
+  pub(crate) value_idx: usize,
 }
 
 #[derive(Debug)]
@@ -106,30 +104,30 @@ pub enum ParseError {
 type ParserBranch<'p, S> = Branch<'p, Parser<S>>;
 
 impl<'p, S: Source> ParserBranch<'p, S> {
-  pub(crate) fn take_next_token(&self) -> Option<Token> {
-    let token_pos = self.token_pos.get();
+  pub(crate) fn take_next_token(&mut self) -> Option<Token> {
+    let token_pos = self.token_pos;
     let token = self.root().token_at(token_pos)?;
-    self.token_pos.set(token_pos + 1);
+    self.token_pos += 1;
     return Some(token);
   }
-  pub(crate) fn take_next_token_by_kind(&self, kind: TokenKind) -> Option<Token> {
-    let token_pos = self.token_pos.get();
+  pub(crate) fn take_next_token_by_kind(&mut self, kind: TokenKind) -> Option<Token> {
+    let token_pos = self.token_pos;
     let token = self.root().token_at(token_pos)?;
 
     if token.kind() != kind {
       return None;
     }
 
-    self.token_pos.set(token_pos + 1);
+    self.token_pos += 1;
     return Some(token);
   }
 
-  pub(crate) fn take_next_value(&self) -> Option<TokenValue> {
-    let index = self.value_idx.get();
+  pub(crate) fn take_next_value(&mut self) -> Option<TokenValue> {
+    let index = self.value_idx;
 
     let token_value = self.root().value_at(index)?;
 
-    self.value_idx.set(index + 1);
+    self.value_idx += 1;
 
     Some(token_value)
   }
